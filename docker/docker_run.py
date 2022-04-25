@@ -49,7 +49,8 @@ if __name__=="__main__":
     cmd += " --user %s " % user_name                                                    # login as current user
 
     # uncomment below to mount your data volume
-    config_yaml = yaml.load(file(config_file))
+    with open(config_file, "r") as stream:
+        config_yaml = yaml.load(stream)
     host_name = socket.gethostname()
     cmd += " -v %s:%s/data " %(config_yaml[host_name][user_name]['path_to_data_directory'], home_directory)
 
