@@ -1,0 +1,9 @@
+logs_root_path: logs_proto
+object_id: "mug"
+train:
+- "2018-05-14-22-47-49" # brown mug
+- "2018-05-14-22-50-02" # brown mug
+# - "2018-05-14-22-52-15" # brown mug
+test: []
+evaluation_labeled_data_path: 
+- "nowhereyet"

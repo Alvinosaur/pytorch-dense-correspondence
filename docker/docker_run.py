@@ -52,6 +52,8 @@ if __name__=="__main__":
     with open(config_file, "r") as stream:
         config_yaml = yaml.load(stream)
     host_name = socket.gethostname()
+    print(host_name)
+    print(user_name)
     cmd += " -v %s:%s/data " %(config_yaml[host_name][user_name]['path_to_data_directory'], home_directory)
 
     # expose UDP ports

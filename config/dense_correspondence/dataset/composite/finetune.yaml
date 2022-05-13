@@ -1,0 +1,6 @@
+logs_root_path: /home/ashek/code/data/pdc/logs_proto
+
+single_object_scenes_config_files:
+- 10_drill_scenes.yaml
+
+multi_object_scenes_config_files: []

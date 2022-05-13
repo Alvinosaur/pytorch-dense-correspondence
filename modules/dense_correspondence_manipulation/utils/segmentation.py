@@ -928,7 +928,7 @@ def createLine(blockDimensions, p1, p2):
     updatePolyData(planePoints, 'board segmentation', parent=getDebugFolder(), color=getRandomColor(), visible=False)
 
     '''
-    names = ['board A', 'board B', 'board C', 'board D', 'board E', 'board F', 'board G', 'board H', 'board I']
+    names = ['board A', 'board B', 'board C', 'board D', 'board E', 'board f(", 'board G', 'board H', 'board I")]
     for name in names:
         if not om.findObjectByName(name):
             break

@@ -1,3 +1,6 @@
 [submodule "pytorch-segmentation-detection"]
 	path = external/pytorch-segmentation-detection
 	url = https://github.com/warmspringwinds/pytorch-segmentation-detection.git
+[submodule "external/Object-Pursuit"]
+	path = external/Object-Pursuit
+	url = git@github.com:Alvinosaur/Object-Pursuit.git

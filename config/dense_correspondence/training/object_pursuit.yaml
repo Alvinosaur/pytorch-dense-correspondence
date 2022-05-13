@@ -1,0 +1,15 @@
+# Object Pursuit specific params
+OP:
+  classes: 1
+  z_dim: 100  # default value
+  use_backbone: True
+  freeze_backbone: True
+
+# Overwritten Train configs
+training:
+  data_type_probabilities:
+    SINGLE_OBJECT_WITHIN_SCENE: 0.5 # (only do this if the category is actually present in data yaml file) 0.33
+    SINGLE_OBJECT_ACROSS_SCENE: 0.5
+    DIFFERENT_OBJECT: 0
+    MULTI_OBJECT: 0
+    SYNTHETIC_MULTI_OBJECT: 0

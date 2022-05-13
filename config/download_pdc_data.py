@@ -71,6 +71,7 @@ print logs
 logs_proto_dir = os.path.join(pdc_data_dir, "logs_proto")
 if not os.path.isdir(logs_proto_dir):
     os.makedirs(logs_proto_dir)
+print("Searching in %s" % logs_proto_dir)
 
 ## uncompress each log
 for i, log in enumerate(logs):

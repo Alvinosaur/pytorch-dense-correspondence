@@ -48,7 +48,8 @@ def getDenseCorrespondenceSourceDir():
     return os.getenv("DC_SOURCE_DIR")
 
 def get_data_dir():
-    return os.getenv("DC_DATA_DIR")
+    # return os.getenv("DC_DATA_DIR")
+    return "/home/ashek/code/data/pdc"
 
 def getPdcPath():
     """
@@ -138,8 +139,15 @@ def add_dense_correspondence_to_python_path():
     # if using this backbone architecture
     sys.path.append(os.path.join(dc_source_dir, 'external/pytorch-segmentation-detection'))
 
+    # Add Object Pursuit
+    sys.path.append(os.path.join(dc_source_dir, 'external/Object-Pursuit'))
+
     # for some reason it is critical that this be at the beginning . . .
     sys.path.insert(0, os.path.join(dc_source_dir, 'external/pytorch-segmentation-detection', 'vision'))
+
+def add_object_pursuit_to_python_path():
+    dc_source_dir = getDenseCorrespondenceSourceDir()
+    sys.path.append(os.path.join(dc_source_dir, 'external/Object-Pursuit'))
 
 
 def convert_to_absolute_path(path):

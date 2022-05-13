@@ -1,3 +1,7 @@
+import dense_correspondence.correspondence_tools.correspondence_augmentation as correspondence_augmentation
+import dense_correspondence.correspondence_tools.correspondence_finder as correspondence_finder
+from pytorch_segmentation_detection.transforms import ComposeJoint
+from torchvision import transforms
 import torch
 import torch.utils.data as data
 
@@ -15,12 +19,6 @@ import sys
 import dense_correspondence_manipulation.utils.utils as utils
 utils.add_dense_correspondence_to_python_path()
 
-from torchvision import transforms
-from pytorch_segmentation_detection.transforms import ComposeJoint
-import dense_correspondence.correspondence_tools.correspondence_finder as correspondence_finder
-import dense_correspondence.correspondence_tools.correspondence_augmentation as correspondence_augmentation
-
-
 
 # This implements a subclass for a data.Dataset class in PyTorch
 # to load in data for dense descriptor training
@@ -37,21 +35,21 @@ class ImageType:
     DEPTH = 1
     MASK = 2
 
+
 class DenseCorrespondenceDataset(data.Dataset):
 
     def __init__(self, debug=False):
-        
+
         self.debug = debug
-        self.mode = "train"
+        self.mode = None
         self.both_to_tensor = ComposeJoint(
             [
                 [transforms.ToTensor(), transforms.ToTensor()]
             ])
 
-      
     def __len__(self):
         return self.num_images_total
-    
+
     def __getitem__(self, index):
         """
         The method through which the dataset is accessed for training.
@@ -86,35 +84,38 @@ class DenseCorrespondenceDataset(data.Dataset):
         # stores metadata about this data
         metadata = dict()
 
-
         # pick a scene
         scene_name = self.get_random_scene_name()
         metadata['scene_name'] = scene_name
 
         # image a
         image_a_idx = self.get_random_image_index(scene_name)
-        image_a_rgb, image_a_depth, image_a_mask, image_a_pose = self.get_rgbd_mask_pose(scene_name, image_a_idx)
+        image_a_rgb, image_a_depth, image_a_mask, image_a_pose = self.get_rgbd_mask_pose(
+            scene_name, image_a_idx)
 
         metadata['image_a_idx'] = image_a_idx
 
         # image b
-        image_b_idx = self.get_img_idx_with_different_pose(scene_name, image_a_pose, num_attempts=50)
+        image_b_idx = self.get_img_idx_with_different_pose(
+            scene_name, image_a_pose, num_attempts=50)
         metadata['image_b_idx'] = image_b_idx
         if image_b_idx is None:
-            logging.info("no frame with sufficiently different pose found, returning")
+            logging.info(
+                "no frame with sufficiently different pose found, returning")
             # TODO: return something cleaner than no-data
             image_a_rgb_tensor = self.rgb_image_to_tensor(image_a_rgb)
             return self.return_empty_data(image_a_rgb_tensor, image_a_rgb_tensor)
 
-        image_b_rgb, image_b_depth, image_b_mask, image_b_pose = self.get_rgbd_mask_pose(scene_name, image_b_idx)
+        image_b_rgb, image_b_depth, image_b_mask, image_b_pose = self.get_rgbd_mask_pose(
+            scene_name, image_b_idx)
 
         image_a_depth_numpy = np.asarray(image_a_depth)
         image_b_depth_numpy = np.asarray(image_b_depth)
 
         # find correspondences
-        uv_a, uv_b = correspondence_finder.batch_find_pixel_correspondences(image_a_depth_numpy, image_a_pose, 
-                                                                           image_b_depth_numpy, image_b_pose, 
-                                                                           num_attempts=self.num_matching_attempts, img_a_mask=np.asarray(image_a_mask))
+        uv_a, uv_b = correspondence_finder.batch_find_pixel_correspondences(image_a_depth_numpy, image_a_pose,
+                                                                            image_b_depth_numpy, image_b_pose,
+                                                                            num_attempts=self.num_matching_attempts, img_a_mask=np.asarray(image_a_mask))
 
         if uv_a is None:
             logging.info("no matches found, returning")
@@ -124,60 +125,71 @@ class DenseCorrespondenceDataset(data.Dataset):
         if self.debug:
             # downsample so can plot
             num_matches_to_plot = 10
-            indexes_to_keep = (torch.rand(num_matches_to_plot)*len(uv_a[0])).floor().type(torch.LongTensor)
-            uv_a = (torch.index_select(uv_a[0], 0, indexes_to_keep), torch.index_select(uv_a[1], 0, indexes_to_keep))
-            uv_b = (torch.index_select(uv_b[0], 0, indexes_to_keep), torch.index_select(uv_b[1], 0, indexes_to_keep))
+            indexes_to_keep = (torch.rand(num_matches_to_plot)
+                               * len(uv_a[0])).floor().type(torch.LongTensor)
+            uv_a = (torch.index_select(uv_a[0], 0, indexes_to_keep), torch.index_select(
+                uv_a[1], 0, indexes_to_keep))
+            uv_b = (torch.index_select(uv_b[0], 0, indexes_to_keep), torch.index_select(
+                uv_b[1], 0, indexes_to_keep))
 
         # data augmentation
         if self._domain_randomize:
-            image_a_rgb = correspondence_augmentation.random_domain_randomize_background(image_a_rgb, image_a_mask)
-            image_b_rgb = correspondence_augmentation.random_domain_randomize_background(image_b_rgb, image_b_mask)
-
+            image_a_rgb = correspondence_augmentation.random_domain_randomize_background(
+                image_a_rgb, image_a_mask)
+            image_b_rgb = correspondence_augmentation.random_domain_randomize_background(
+                image_b_rgb, image_b_mask)
 
         if not self.debug:
-            [image_a_rgb], uv_a                 = correspondence_augmentation.random_image_and_indices_mutation([image_a_rgb], uv_a)
-            [image_b_rgb, image_b_mask], uv_b   = correspondence_augmentation.random_image_and_indices_mutation([image_b_rgb, image_b_mask], uv_b)
-        else: # also mutate depth just for plotting
-            [image_a_rgb, image_a_depth], uv_a               = correspondence_augmentation.random_image_and_indices_mutation([image_a_rgb, image_a_depth], uv_a)
-            [image_b_rgb, image_b_depth, image_b_mask], uv_b = correspondence_augmentation.random_image_and_indices_mutation([image_b_rgb, image_b_depth, image_b_mask], uv_b)
+            [image_a_rgb], uv_a = correspondence_augmentation.random_image_and_indices_mutation([
+                                                                                                image_a_rgb], uv_a)
+            [image_b_rgb, image_b_mask], uv_b = correspondence_augmentation.random_image_and_indices_mutation([
+                                                                                                              image_b_rgb, image_b_mask], uv_b)
+        else:  # also mutate depth just for plotting
+            [image_a_rgb, image_a_depth], uv_a = correspondence_augmentation.random_image_and_indices_mutation([
+                                                                                                               image_a_rgb, image_a_depth], uv_a)
+            [image_b_rgb, image_b_depth, image_b_mask], uv_b = correspondence_augmentation.random_image_and_indices_mutation(
+                [image_b_rgb, image_b_depth, image_b_mask], uv_b)
             image_a_depth_numpy = np.asarray(image_a_depth)
             image_b_depth_numpy = np.asarray(image_b_depth)
 
         # find non_correspondences
 
-        if index%2:
+        if index % 2:
             metadata['non_match_type'] = 'masked'
             logging.debug("masking non-matches")
-            image_b_mask = torch.from_numpy(np.asarray(image_b_mask)).type(torch.FloatTensor)
+            image_b_mask = torch.from_numpy(
+                np.asarray(image_b_mask)).type(torch.FloatTensor)
         else:
             metadata['non_match_type'] = 'non_masked'
             logging.debug("not masking non-matches")
             image_b_mask = None
-            
+
         image_b_shape = image_b_depth_numpy.shape
-        image_width  = image_b_shape[1]
+        image_width = image_b_shape[1]
         image_height = image_b_shape[1]
 
-        uv_b_non_matches = correspondence_finder.create_non_correspondences(uv_b, image_b_shape, 
-            num_non_matches_per_match=self.num_non_matches_per_match, img_b_mask=image_b_mask)
+        uv_b_non_matches = correspondence_finder.create_non_correspondences(uv_b, image_b_shape,
+                                                                            num_non_matches_per_match=self.num_non_matches_per_match, img_b_mask=image_b_mask)
 
         if self.debug:
             # only want to bring in plotting code if in debug mode
             import correspondence_plotter
 
-            # Just show all images 
-            uv_a_long = (torch.t(uv_a[0].repeat(self.num_non_matches_per_match, 1)).contiguous().view(-1,1), 
-                     torch.t(uv_a[1].repeat(self.num_non_matches_per_match, 1)).contiguous().view(-1,1))
-            uv_b_non_matches_long = (uv_b_non_matches[0].view(-1,1), uv_b_non_matches[1].view(-1,1) )
-            
+            # Just show all images
+            uv_a_long = (torch.t(uv_a[0].repeat(self.num_non_matches_per_match, 1)).contiguous().view(-1, 1),
+                         torch.t(uv_a[1].repeat(self.num_non_matches_per_match, 1)).contiguous().view(-1, 1))
+            uv_b_non_matches_long = (
+                uv_b_non_matches[0].view(-1, 1), uv_b_non_matches[1].view(-1, 1))
+
             # Show correspondences
             if uv_a is not None:
-                fig, axes = correspondence_plotter.plot_correspondences_direct(image_a_rgb, image_a_depth_numpy, image_b_rgb, image_b_depth_numpy, uv_a, uv_b, show=False)
+                fig, axes = correspondence_plotter.plot_correspondences_direct(
+                    image_a_rgb, image_a_depth_numpy, image_b_rgb, image_b_depth_numpy, uv_a, uv_b, show=False)
                 correspondence_plotter.plot_correspondences_direct(image_a_rgb, image_a_depth_numpy, image_b_rgb, image_b_depth_numpy,
-                                                  uv_a_long, uv_b_non_matches_long,
-                                                  use_previous_plot=(fig,axes),
-                                                  circ_color='r')
-
+                                                                   uv_a_long, uv_b_non_matches_long,
+                                                                   use_previous_plot=(
+                                                                       fig, axes),
+                                                                   circ_color='r')
 
         # image_a_rgb, image_b_rgb = self.both_to_tensor([image_a_rgb, image_b_rgb])
 
@@ -185,16 +197,18 @@ class DenseCorrespondenceDataset(data.Dataset):
         image_a_rgb = self.rgb_image_to_tensor(image_a_rgb)
         image_b_rgb = self.rgb_image_to_tensor(image_b_rgb)
 
-        uv_a_long = (torch.t(uv_a[0].repeat(self.num_non_matches_per_match, 1)).contiguous().view(-1,1), 
-                     torch.t(uv_a[1].repeat(self.num_non_matches_per_match, 1)).contiguous().view(-1,1))
-        uv_b_non_matches_long = (uv_b_non_matches[0].view(-1,1), uv_b_non_matches[1].view(-1,1) )
+        uv_a_long = (torch.t(uv_a[0].repeat(self.num_non_matches_per_match, 1)).contiguous().view(-1, 1),
+                     torch.t(uv_a[1].repeat(self.num_non_matches_per_match, 1)).contiguous().view(-1, 1))
+        uv_b_non_matches_long = (
+            uv_b_non_matches[0].view(-1, 1), uv_b_non_matches[1].view(-1, 1))
 
         # flatten correspondences and non_correspondences
         matches_a = uv_a[1].long()*image_width+uv_a[0].long()
         matches_b = uv_b[1].long()*image_width+uv_b[0].long()
         non_matches_a = uv_a_long[1].long()*image_width+uv_a_long[0].long()
         non_matches_a = non_matches_a.squeeze(1)
-        non_matches_b = uv_b_non_matches_long[1].long()*image_width+uv_b_non_matches_long[0].long()
+        non_matches_b = uv_b_non_matches_long[1].long(
+        )*image_width+uv_b_non_matches_long[0].long()
         non_matches_b = non_matches_b.squeeze(1)
 
         return "matches", image_a_rgb, image_b_rgb, matches_a, matches_b, non_matches_a, non_matches_b, metadata
@@ -235,10 +249,12 @@ class DenseCorrespondenceDataset(data.Dataset):
         rgb_file = self.get_image_filename(scene_name, img_idx, ImageType.RGB)
         rgb = self.get_rgb_image(rgb_file)
 
-        depth_file = self.get_image_filename(scene_name, img_idx, ImageType.DEPTH)
+        depth_file = self.get_image_filename(
+            scene_name, img_idx, ImageType.DEPTH)
         depth = self.get_depth_image(depth_file)
 
-        mask_file = self.get_image_filename(scene_name, img_idx, ImageType.MASK)
+        mask_file = self.get_image_filename(
+            scene_name, img_idx, ImageType.MASK)
         mask = self.get_mask_image(mask_file)
 
         pose = self.get_pose_from_scene_name_and_idx(scene_name, img_idx)
@@ -255,7 +271,6 @@ class DenseCorrespondenceDataset(data.Dataset):
         scene_name = self.get_random_scene_name()
         img_idx = self.get_random_image_index(scene_name)
         return self.get_rgbd_mask_pose(scene_name, img_idx)
-
 
     def get_img_idx_with_different_pose(self, scene_name, pose_a, threshold=0.2, angle_threshold=20, num_attempts=10):
         """
@@ -286,7 +301,6 @@ class DenseCorrespondenceDataset(data.Dataset):
 
         return None
 
-
     def rgb_image_to_tensor(self, img):
         """
         Transforms a PIL.Image to a torch.FloatTensor.
@@ -297,7 +311,6 @@ class DenseCorrespondenceDataset(data.Dataset):
         :rtype:
         """
         raise NotImplementedError("subclass must implement this method")
-
 
     @staticmethod
     def load_rgb_image(rgb_filename):
@@ -335,7 +348,8 @@ class DenseCorrespondenceDataset(data.Dataset):
         :param img_idx: str or int
         :return: PIL.Image.Image
         """
-        img_filename = self.get_image_filename(scene_name, img_idx, ImageType.RGB)
+        img_filename = self.get_image_filename(
+            scene_name, img_idx, ImageType.RGB)
         return self.get_rgb_image(img_filename)
 
     def get_depth_image(self, depth_filename):
@@ -352,7 +366,8 @@ class DenseCorrespondenceDataset(data.Dataset):
         :param img_idx: str or int
         :return: PIL.Image.Image
         """
-        img_filename = self.get_image_filename(scene_name, img_idx, ImageType.DEPTH)
+        img_filename = self.get_image_filename(
+            scene_name, img_idx, ImageType.DEPTH)
         return self.get_depth_image(img_filename)
 
     def get_mask_image(self, mask_filename):
@@ -369,7 +384,8 @@ class DenseCorrespondenceDataset(data.Dataset):
         :param img_idx: str or int
         :return: PIL.Image.Image
         """
-        img_filename = self.get_image_filename(scene_name, img_idx, ImageType.MASK)
+        img_filename = self.get_image_filename(
+            scene_name, img_idx, ImageType.MASK)
         return self.get_mask_image(img_filename)
 
     def get_image_filename(self, scene_name, img_index, image_type):
@@ -405,15 +421,16 @@ class DenseCorrespondenceDataset(data.Dataset):
         q = np.outer(q, q)
         return np.array([
             [1.0-q[2, 2]-q[3, 3],     q[1, 2]-q[3, 0],     q[1, 3]+q[2, 0], 0.0],
-            [    q[1, 2]+q[3, 0], 1.0-q[1, 1]-q[3, 3],     q[2, 3]-q[1, 0], 0.0],
-            [    q[1, 3]-q[2, 0],     q[2, 3]+q[1, 0], 1.0-q[1, 1]-q[2, 2], 0.0],
-            [                0.0,                 0.0,                 0.0, 1.0]])
+            [q[1, 2]+q[3, 0], 1.0-q[1, 1]-q[3, 3],     q[2, 3]-q[1, 0], 0.0],
+            [q[1, 3]-q[2, 0],     q[2, 3]+q[1, 0], 1.0-q[1, 1]-q[2, 2], 0.0],
+            [0.0,                 0.0,                 0.0, 1.0]])
 
     def elasticfusion_pose_to_homogeneous_transform(self, lf_pose):
-        homogeneous_transform = self.quaternion_matrix([lf_pose[6], lf_pose[3], lf_pose[4], lf_pose[5]])
-        homogeneous_transform[0,3] = lf_pose[0]
-        homogeneous_transform[1,3] = lf_pose[1]
-        homogeneous_transform[2,3] = lf_pose[2]
+        homogeneous_transform = self.quaternion_matrix(
+            [lf_pose[6], lf_pose[3], lf_pose[4], lf_pose[5]])
+        homogeneous_transform[0, 3] = lf_pose[0]
+        homogeneous_transform[1, 3] = lf_pose[1]
+        homogeneous_transform[2, 3] = lf_pose[2]
         return homogeneous_transform
 
     def get_pose_list(self, scene_directory, pose_list_filename):
@@ -467,12 +484,13 @@ class DenseCorrespondenceDataset(data.Dataset):
         :return:
         :rtype:
         """
-        
+
         self.num_images_total = 0
         self._num_scenes = 0
         for scene_name in self.scene_generator():
             scene_directory = self.get_full_path_for_scene(scene_name)
-            rgb_images_regex = os.path.join(scene_directory, "images/*_rgb.png")
+            rgb_images_regex = os.path.join(
+                scene_directory, "images/*_rgb.png")
             all_rgb_images_in_scene = glob.glob(rgb_images_regex)
             num_images_this_scene = len(all_rgb_images_in_scene)
             self.num_images_total += num_images_this_scene
@@ -497,7 +515,8 @@ class DenseCorrespondenceDataset(data.Dataset):
         return full_path
 
     def use_all_available_scenes(self):
-        self.scenes = [os.path.basename(x) for x in glob.glob(self.logs_root_path+"*")]
+        self.scenes = [os.path.basename(x)
+                       for x in glob.glob(self.logs_root_path+"*")]
 
     def set_train_test_split_from_yaml(self, yaml_config_file_full_path):
         """
@@ -515,7 +534,7 @@ class DenseCorrespondenceDataset(data.Dataset):
             config_dict = yaml_config_file_full_path
 
         self.train = config_dict["train"]
-        self.test  = config_dict["test"]
+        self.test = config_dict["test"]
         self.set_train_mode()
 
     def set_parameters_from_training_config(self, training_config):
@@ -535,42 +554,46 @@ class DenseCorrespondenceDataset(data.Dataset):
 
         # self._training_config = copy.deepcopy(training_config["training"])
 
-        self.num_matching_attempts = int(training_config['training']['num_matching_attempts'])
+        self.num_matching_attempts = int(
+            training_config['training']['num_matching_attempts'])
         self.sample_matches_only_off_mask = training_config['training']['sample_matches_only_off_mask']
 
         self.num_non_matches_per_match = training_config['training']["num_non_matches_per_match"]
 
-
-        self.num_masked_non_matches_per_match     = int(training_config['training']["fraction_masked_non_matches"] * self.num_non_matches_per_match)
+        self.num_masked_non_matches_per_match = int(
+            training_config['training']["fraction_masked_non_matches"] * self.num_non_matches_per_match)
 
         self.num_background_non_matches_per_match = int(training_config['training'][
-                                                    "fraction_background_non_matches"] * self.num_non_matches_per_match)
+            "fraction_background_non_matches"] * self.num_non_matches_per_match)
 
-        self.cross_scene_num_samples              = training_config['training']["cross_scene_num_samples"]
+        self.cross_scene_num_samples = training_config['training']["cross_scene_num_samples"]
 
-        self._use_image_b_mask_inv = training_config["training"]["use_image_b_mask_inv"] 
+        self._use_image_b_mask_inv = training_config["training"]["use_image_b_mask_inv"]
 
         from spartan_dataset_masked import SpartanDatasetDataType
 
         self._data_load_types = []
         self._data_load_type_probabilities = []
 
-        p = training_config["training"]["data_type_probabilities"]["SINGLE_OBJECT_WITHIN_SCENE"] 
+        p = training_config["training"]["data_type_probabilities"]["SINGLE_OBJECT_WITHIN_SCENE"]
         if p > 0:
             print "using SINGLE_OBJECT_WITHIN_SCENE"
-            self._data_load_types.append(SpartanDatasetDataType.SINGLE_OBJECT_WITHIN_SCENE)
+            self._data_load_types.append(
+                SpartanDatasetDataType.SINGLE_OBJECT_WITHIN_SCENE)
             self._data_load_type_probabilities.append(p)
 
         p = training_config["training"]["data_type_probabilities"]["SINGLE_OBJECT_ACROSS_SCENE"]
         if p > 0:
             print "using SINGLE_OBJECT_ACROSS_SCENE"
-            self._data_load_types.append(SpartanDatasetDataType.SINGLE_OBJECT_ACROSS_SCENE)
+            self._data_load_types.append(
+                SpartanDatasetDataType.SINGLE_OBJECT_ACROSS_SCENE)
             self._data_load_type_probabilities.append(p)
 
         p = training_config["training"]["data_type_probabilities"]["DIFFERENT_OBJECT"]
         if p > 0:
             print "using DIFFERENT_OBJECT"
-            self._data_load_types.append(SpartanDatasetDataType.DIFFERENT_OBJECT)
+            self._data_load_types.append(
+                SpartanDatasetDataType.DIFFERENT_OBJECT)
             self._data_load_type_probabilities.append(p)
 
         p = training_config["training"]["data_type_probabilities"]["MULTI_OBJECT"]
@@ -582,11 +605,14 @@ class DenseCorrespondenceDataset(data.Dataset):
         p = training_config["training"]["data_type_probabilities"]["SYNTHETIC_MULTI_OBJECT"]
         if p > 0:
             print "using SYNTHETIC_MULTI_OBJECT"
-            self._data_load_types.append(SpartanDatasetDataType.SYNTHETIC_MULTI_OBJECT)
+            self._data_load_types.append(
+                SpartanDatasetDataType.SYNTHETIC_MULTI_OBJECT)
             self._data_load_type_probabilities.append(p)
 
-        self._data_load_type_probabilities = np.array(self._data_load_type_probabilities)
-        self._data_load_type_probabilities /= np.sum(self._data_load_type_probabilities)
+        self._data_load_type_probabilities = np.array(
+            self._data_load_type_probabilities)
+        self._data_load_type_probabilities /= np.sum(
+            self._data_load_type_probabilities)
 
     def set_train_mode(self):
         self.mode = "train"
@@ -610,7 +636,6 @@ class DenseCorrespondenceDataset(data.Dataset):
         """
         self._domain_randomize = False
 
-
     def compute_image_mean_and_std_dev(self, num_image_samples=10):
         """
         Computes the image_mean and std_dev using the specified number of samples.
@@ -624,7 +649,8 @@ class DenseCorrespondenceDataset(data.Dataset):
         def get_random_image():
             scene_name = self.get_random_scene_name()
             img_idx = self.get_random_image_index(scene_name)
-            img_filename = self.get_image_filename(scene_name, img_idx, ImageType.RGB)
+            img_filename = self.get_image_filename(
+                scene_name, img_idx, ImageType.RGB)
             img = self.get_rgb_image(img_filename)
             return img
 
@@ -649,10 +675,7 @@ class DenseCorrespondenceDataset(data.Dataset):
             std_dev = torch.std(v, 1)
             return std_dev
 
-
-
         to_tensor = transforms.ToTensor()
-
 
         img_mean_sum = None
 
@@ -666,9 +689,7 @@ class DenseCorrespondenceDataset(data.Dataset):
             if img_mean_sum is None:
                 img_mean_sum = torch.zeros_like(single_img_mean)
 
-
             img_mean_sum = img_mean_sum + single_img_mean
-
 
         std_dev_sum = None
 
@@ -680,17 +701,12 @@ class DenseCorrespondenceDataset(data.Dataset):
             if std_dev_sum is None:
                 std_dev_sum = torch.zeros_like(single_std_dev)
 
-
             std_dev_sum += single_std_dev
-
 
         img_mean = 1.0/num_image_samples * img_mean_sum
         std_dev = 1.0/num_image_samples * std_dev_sum
 
         return img_mean, std_dev
-
-
-
 
     @property
     def test_scene_directories(self):
@@ -710,8 +726,9 @@ class DenseCorrespondenceDataset(data.Dataset):
     """
     Debug
     """
+
     def debug_show_data(self, image_a_rgb, image_a_depth, image_a_pose,
-                              image_b_rgb, image_b_depth, image_b_pose):
+                        image_b_rgb, image_b_depth, image_b_pose):
         plt.imshow(image_a_rgb)
         plt.show()
         plt.imshow(image_a_depth)

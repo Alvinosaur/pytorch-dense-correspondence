@@ -1,4 +1,9 @@
 # system
+from dense_correspondence.evaluation.evaluation import DenseCorrespondenceEvaluation
+import dense_correspondence.loss_functions.loss_composer as loss_composer
+from dense_correspondence.loss_functions.pixelwise_contrastive_loss import PixelwiseContrastiveLoss
+from dense_correspondence.network.dense_correspondence_network import DenseCorrespondenceNetwork
+from dense_correspondence.dataset.spartan_dataset_masked import SpartanDataset, SpartanDatasetDataType
 import numpy as np
 import os
 import fnmatch
@@ -8,6 +13,8 @@ import time
 import shutil
 import subprocess
 import copy
+from tqdm import tqdm
+from fstring import fstring as f
 
 # torch
 import torch
@@ -20,27 +27,18 @@ import torch.optim as optim
 import tensorboard_logger
 
 
-
-
 # dense correspondence
 import dense_correspondence_manipulation.utils.utils as utils
 utils.add_dense_correspondence_to_python_path()
-import pytorch_segmentation_detection.models.fcn as fcns
-import pytorch_segmentation_detection.models.resnet_dilated as resnet_dilated
-from pytorch_segmentation_detection.transforms import (ComposeJoint,
-                                                       RandomHorizontalFlipJoint,
-                                                       RandomScaleJoint,
-                                                       CropOrPad,
-                                                       ResizeAspectRatioPreserve,
-                                                       RandomCropJoint,
-                                                       Split2D)
-
-from dense_correspondence.dataset.spartan_dataset_masked import SpartanDataset, SpartanDatasetDataType
-from dense_correspondence.network.dense_correspondence_network import DenseCorrespondenceNetwork
-
-from dense_correspondence.loss_functions.pixelwise_contrastive_loss import PixelwiseContrastiveLoss
-import dense_correspondence.loss_functions.loss_composer as loss_composer
-from dense_correspondence.evaluation.evaluation import DenseCorrespondenceEvaluation
+# import pytorch_segmentation_detection.models.fcn as fcns
+# import pytorch_segmentation_detection.models.resnet_dilated as resnet_dilated
+# from pytorch_segmentation_detection.transforms import (ComposeJoint,
+#                                                        RandomHorizontalFlipJoint,
+#                                                        RandomScaleJoint,
+#                                                        CropOrPad,
+#                                                        ResizeAspectRatioPreserve,
+#                                                        RandomCropJoint,
+#                                                        Split2D)
 
 
 class DenseCorrespondenceTraining(object):
@@ -50,22 +48,28 @@ class DenseCorrespondenceTraining(object):
             config = DenseCorrespondenceTraining.load_default_config()
 
         self._config = config
+        self.device = config["device"]
         self._dataset = dataset
         self._dataset_test = dataset_test
 
         self._dcn = None
         self._optimizer = None
+        self.loaded_iteration = 0
+        self._dce = DenseCorrespondenceEvaluation(config)
 
-    def setup(self):
+        self.loss_fn = PixelwiseContrastiveLoss(
+            image_width=self._config['dense_correspondence_network']['image_width'], config=self._config['loss_function'])
+        self.loss_fn.debug = True
+
+    def setup(self, start_iteration=0):
         """
         Initializes the object
         :return:
         :rtype:
         """
         self.load_dataset()
-        self.setup_logging_dir()
+        self.setup_logging_dir(start_iteration)
         self.setup_tensorboard()
-
 
     @property
     def dataset(self):
@@ -89,24 +93,24 @@ class DenseCorrespondenceTraining(object):
         if self._dataset is None:
             self._dataset = SpartanDataset.make_default_10_scenes_drill()
 
-        
         self._dataset.load_all_pose_data()
         self._dataset.set_parameters_from_training_config(self._config)
 
         self._data_loader = torch.utils.data.DataLoader(self._dataset, batch_size=batch_size,
-                                          shuffle=True, num_workers=num_workers, drop_last=True)
+                                                        shuffle=True, num_workers=num_workers, drop_last=True)
 
         # create a test dataset
         if self._config["training"]["compute_test_loss"]:
             if self._dataset_test is None:
-                self._dataset_test = SpartanDataset(mode="test", config=self._dataset.config)
+                self._dataset_test = SpartanDataset(
+                    mode="test", config=self._dataset.config)
 
-            
             self._dataset_test.load_all_pose_data()
-            self._dataset_test.set_parameters_from_training_config(self._config)
+            self._dataset_test.set_parameters_from_training_config(
+                self._config)
 
             self._data_loader_test = torch.utils.data.DataLoader(self._dataset_test, batch_size=batch_size,
-                                          shuffle=True, num_workers=2, drop_last=True)
+                                                                 shuffle=True, num_workers=2, drop_last=True)
 
     def load_dataset_from_config(self, config):
         """
@@ -141,7 +145,8 @@ class DenseCorrespondenceTraining(object):
 
         learning_rate = float(self._config['training']['learning_rate'])
         weight_decay = float(self._config['training']['weight_decay'])
-        optimizer = optim.Adam(parameters, lr=learning_rate, weight_decay=weight_decay)
+        optimizer = optim.Adam(
+            parameters, lr=learning_rate, weight_decay=weight_decay)
         return optimizer
 
     def _get_current_loss(self, logging_dict):
@@ -161,8 +166,7 @@ class DenseCorrespondenceTraining(object):
                 if len(vec) > 0:
                     val[field] = vec[-1]
                 else:
-                    val[field] = -1 # placeholder
-
+                    val[field] = -1  # placeholder
 
         return d
 
@@ -183,7 +187,8 @@ class DenseCorrespondenceTraining(object):
 
         if not os.path.isdir(model_folder):
             pdc_path = utils.getPdcPath()
-            model_folder = os.path.join(pdc_path, "trained_models", model_folder)
+            model_folder = os.path.join(
+                pdc_path, "trained_models", model_folder)
 
         # find idx.pth and idx.pth.opt files
         if iteration is None:
@@ -200,16 +205,63 @@ class DenseCorrespondenceTraining(object):
         model_param_file = os.path.join(model_folder, model_param_file)
         optim_param_file = os.path.join(model_folder, optim_param_file)
 
-
         self._dcn = self.build_network()
         self._dcn.load_state_dict(torch.load(model_param_file))
-        self._dcn.cuda()
+        self._dcn.to(self.device)
         self._dcn.train()
 
         self._optimizer = self._construct_optimizer(self._dcn.parameters())
         self._optimizer.load_state_dict(torch.load(optim_param_file))
 
         return iteration
+
+    def calc_losses(self, dcn, sample):
+        (match_type,
+         img_a, img_b,
+         matches_a, matches_b,
+         masked_non_matches_a, masked_non_matches_b,
+         background_non_matches_a, background_non_matches_b,
+         blind_non_matches_a, blind_non_matches_b,
+         metadata) = sample
+        batch_size = img_a.shape[0]
+
+        if (match_type == -1).all():
+            print ("\n empty data, continuing \n")
+            return None
+
+        img_a = Variable(img_a.to(self.device), requires_grad=False)
+        img_b = Variable(img_b.to(self.device), requires_grad=False)
+
+        matches_a = Variable(matches_a.to(
+            self.device).squeeze(0), requires_grad=False)
+        matches_b = Variable(matches_b.to(
+            self.device).squeeze(0), requires_grad=False)
+        masked_non_matches_a = Variable(masked_non_matches_a.to(
+            self.device).squeeze(0), requires_grad=False)
+        masked_non_matches_b = Variable(masked_non_matches_b.to(
+            self.device).squeeze(0), requires_grad=False)
+
+        background_non_matches_a = Variable(background_non_matches_a.to(
+            self.device).squeeze(0), requires_grad=False)
+        background_non_matches_b = Variable(background_non_matches_b.to(
+            self.device).squeeze(0), requires_grad=False)
+
+        blind_non_matches_a = Variable(blind_non_matches_a.to(
+            self.device).squeeze(0), requires_grad=False)
+        blind_non_matches_b = Variable(blind_non_matches_b.to(
+            self.device).squeeze(0), requires_grad=False)
+
+        # run both images through the network
+        image_a_pred = dcn.forward(img_a)
+        image_a_pred = dcn.process_network_output(image_a_pred, batch_size)
+
+        image_b_pred = dcn.forward(img_b)
+        image_b_pred = dcn.process_network_output(image_b_pred, batch_size)
+
+        # get loss
+        return loss_composer.get_loss(self.loss_fn, match_type,
+                                      image_a_pred, image_b_pred, matches_a, matches_b,
+                                      masked_non_matches_a, masked_non_matches_b, background_non_matches_a, background_non_matches_b, blind_non_matches_a, blind_non_matches_b)
 
     def run_from_pretrained(self, model_folder, iteration=None, learning_rate=None):
         """
@@ -234,10 +286,8 @@ class DenseCorrespondenceTraining(object):
 
         start_iteration = copy.copy(loss_current_iteration)
 
-        DCE = DenseCorrespondenceEvaluation
-
-        self.setup()
-        self.save_configs()
+        self.setup(start_iteration)
+        self.save_configs(start_iteration)
 
         if not use_pretrained:
             # create new network and optimizer
@@ -246,24 +296,24 @@ class DenseCorrespondenceTraining(object):
         else:
             logging.info("using pretrained model")
             if (self._dcn is None):
-                raise ValueError("you must set self._dcn if use_pretrained=True")
+                raise ValueError(
+                    "you must set self._dcn if use_pretrained=True")
             if (self._optimizer is None):
-                raise ValueError("you must set self._optimizer if use_pretrained=True")
+                raise ValueError(
+                    "you must set self._optimizer if use_pretrained=True")
 
         # make sure network is using cuda and is in train mode
         dcn = self._dcn
-        dcn.cuda()
+        dcn.to(self.device)
         dcn.train()
 
         optimizer = self._optimizer
         batch_size = self._data_loader.batch_size
 
-        pixelwise_contrastive_loss = PixelwiseContrastiveLoss(image_shape=dcn.image_shape, config=self._config['loss_function'])
-        pixelwise_contrastive_loss.debug = True
-
         loss = match_loss = non_match_loss = 0
 
-        max_num_iterations = self._config['training']['num_iterations'] + start_iteration
+        max_num_iterations = self._config['training']['num_iterations'] + \
+            start_iteration
         logging_rate = self._config['training']['logging_rate']
         save_rate = self._config['training']['save_rate']
         compute_test_loss_rate = self._config['training']['compute_test_loss_rate']
@@ -271,14 +321,16 @@ class DenseCorrespondenceTraining(object):
         # logging
         self._logging_dict = dict()
         self._logging_dict['train'] = {"iteration": [], "loss": [], "match_loss": [],
-                                           "masked_non_match_loss": [], 
-                                           "background_non_match_loss": [],
-                                           "blind_non_match_loss": [],
-                                           "learning_rate": [],
-                                           "different_object_non_match_loss": []}
+                                       "masked_non_match_loss": [],
+                                       "background_non_match_loss": [],
+                                       "blind_non_match_loss": [],
+                                       "learning_rate": [],
+                                       "different_object_non_match_loss": []}
 
         self._logging_dict['test'] = {"iteration": [], "loss": [], "match_loss": [],
-                                           "non_match_loss": []}
+                                      "masked_non_match_loss": [],
+                                      "background_non_match_loss": [],
+                                      "blind_non_match_loss": []}
 
         # save network before starting
         if not use_pretrained:
@@ -287,145 +339,131 @@ class DenseCorrespondenceTraining(object):
         # from training_progress_visualizer import TrainingProgressVisualizer
         # TPV = TrainingProgressVisualizer()
 
+        num_iters = min(50*len(self._data_loader),
+                        max_num_iterations) - loss_current_iteration
+        pbar = tqdm(total=num_iters, position=0, leave=True)
         for epoch in range(50):  # loop over the dataset multiple times
-
-            for i, data in enumerate(self._data_loader, 0):
+            for i, sample in enumerate(self._data_loader, 0):
                 loss_current_iteration += 1
+                pbar.update(1)
                 start_iter = time.time()
 
-                match_type, \
-                img_a, img_b, \
-                matches_a, matches_b, \
-                masked_non_matches_a, masked_non_matches_b, \
-                background_non_matches_a, background_non_matches_b, \
-                blind_non_matches_a, blind_non_matches_b, \
-                metadata = data
-
+                match_type = sample[0]
                 if (match_type == -1).all():
-                    print "\n empty data, continuing \n"
+                    print("\n empty data, continuing \n")
                     continue
 
-
+                metadata = sample[-1]
                 data_type = metadata["type"][0]
-                
-                img_a = Variable(img_a.cuda(), requires_grad=False)
-                img_b = Variable(img_b.cuda(), requires_grad=False)
-
-                matches_a = Variable(matches_a.cuda().squeeze(0), requires_grad=False)
-                matches_b = Variable(matches_b.cuda().squeeze(0), requires_grad=False)
-                masked_non_matches_a = Variable(masked_non_matches_a.cuda().squeeze(0), requires_grad=False)
-                masked_non_matches_b = Variable(masked_non_matches_b.cuda().squeeze(0), requires_grad=False)
-
-                background_non_matches_a = Variable(background_non_matches_a.cuda().squeeze(0), requires_grad=False)
-                background_non_matches_b = Variable(background_non_matches_b.cuda().squeeze(0), requires_grad=False)
-
-                blind_non_matches_a = Variable(blind_non_matches_a.cuda().squeeze(0), requires_grad=False)
-                blind_non_matches_b = Variable(blind_non_matches_b.cuda().squeeze(0), requires_grad=False)
 
                 optimizer.zero_grad()
                 self.adjust_learning_rate(optimizer, loss_current_iteration)
-
-                # run both images through the network
-                image_a_pred = dcn.forward(img_a)
-                image_a_pred = dcn.process_network_output(image_a_pred, batch_size)
-
-                image_b_pred = dcn.forward(img_b)
-                image_b_pred = dcn.process_network_output(image_b_pred, batch_size)
-
-                # get loss
-                loss, match_loss, masked_non_match_loss, \
-                background_non_match_loss, blind_non_match_loss = loss_composer.get_loss(pixelwise_contrastive_loss, match_type,
-                                                                                image_a_pred, image_b_pred,
-                                                                                matches_a,     matches_b,
-                                                                                masked_non_matches_a, masked_non_matches_b,
-                                                                                background_non_matches_a, background_non_matches_b,
-                                                                                blind_non_matches_a, blind_non_matches_b)
-                
+                (loss, match_loss, masked_non_match_loss,
+                 background_non_match_loss, blind_non_match_loss) = self.calc_losses(dcn, sample)
 
                 loss.backward()
                 optimizer.step()
 
-                #if i % 10 == 0:
+                # if i % 10 == 0:
                 # TPV.update(self._dataset, dcn, loss_current_iteration, now_training_object_id=metadata["object_id"])
 
                 elapsed = time.time() - start_iter
 
-                def update_plots(loss, match_loss, masked_non_match_loss, background_non_match_loss, blind_non_match_loss):
+                def update_plots(loss, match_loss, masked_non_match_loss, background_non_match_loss, blind_non_match_loss, mode="train"):
                     """
                     Updates the tensorboard plots with current loss function information
                     :return:
                     :rtype:
                     """
 
-
-
-                    learning_rate = DenseCorrespondenceTraining.get_learning_rate(optimizer)
-                    self._logging_dict['train']['learning_rate'].append(learning_rate)
-                    self._tensorboard_logger.log_value("learning rate", learning_rate, loss_current_iteration)
-
+                    learning_rate = DenseCorrespondenceTraining.get_learning_rate(
+                        optimizer)
+                    if mode == "train":
+                        self._logging_dict[mode]['learning_rate'].append(
+                            learning_rate)
+                    self._tensorboard_logger.log_value(
+                        "learning rate", learning_rate, loss_current_iteration)
 
                     # Don't update any plots if the entry corresponding to that term
                     # is a zero loss
                     if not loss_composer.is_zero_loss(match_loss):
-                        self._logging_dict['train']['match_loss'].append(match_loss.item())
-                        self._tensorboard_logger.log_value("train match loss", match_loss.item(), loss_current_iteration)
+                        self._logging_dict[mode]['match_loss'].append(
+                            match_loss.item())
+                        self._tensorboard_logger.log_value(
+                            f("{mode} match loss"), match_loss.item(), loss_current_iteration)
 
                     if not loss_composer.is_zero_loss(masked_non_match_loss):
-                        self._logging_dict['train']['masked_non_match_loss'].append(masked_non_match_loss.item())
+                        self._logging_dict[mode]['masked_non_match_loss'].append(
+                            masked_non_match_loss.item())
 
-                        self._tensorboard_logger.log_value("train masked non match loss", masked_non_match_loss.item(), loss_current_iteration)
+                        self._tensorboard_logger.log_value(
+                            f("{mode} masked non match loss"), masked_non_match_loss.item(), loss_current_iteration)
 
                     if not loss_composer.is_zero_loss(background_non_match_loss):
-                        self._logging_dict['train']['background_non_match_loss'].append(background_non_match_loss.item())
-                        self._tensorboard_logger.log_value("train background non match loss", background_non_match_loss.item(), loss_current_iteration)
+                        self._logging_dict[mode]['background_non_match_loss'].append(
+                            background_non_match_loss.item())
+                        self._tensorboard_logger.log_value(
+                            f("{mode} background non match loss"), background_non_match_loss.item(), loss_current_iteration)
 
                     if not loss_composer.is_zero_loss(blind_non_match_loss):
 
                         if data_type == SpartanDatasetDataType.SINGLE_OBJECT_WITHIN_SCENE:
-                            self._tensorboard_logger.log_value("train blind SINGLE_OBJECT_WITHIN_SCENE", blind_non_match_loss.item(), loss_current_iteration)
+                            self._tensorboard_logger.log_value(
+                                f("{mode} blind SINGLE_OBJECT_WITHIN_SCENE"), blind_non_match_loss.item(), loss_current_iteration)
 
                         if data_type == SpartanDatasetDataType.DIFFERENT_OBJECT:
-                            self._tensorboard_logger.log_value("train blind DIFFERENT_OBJECT", blind_non_match_loss.item(), loss_current_iteration)
-
+                            self._tensorboard_logger.log_value(
+                                f("{mode} blind DIFFERENT_OBJECT"), blind_non_match_loss.item(), loss_current_iteration)
 
                     # loss is never zero
                     if data_type == SpartanDatasetDataType.SINGLE_OBJECT_WITHIN_SCENE:
-                        self._tensorboard_logger.log_value("train loss SINGLE_OBJECT_WITHIN_SCENE", loss.item(), loss_current_iteration)
+                        self._tensorboard_logger.log_value(
+                            f("{mode} loss SINGLE_OBJECT_WITHIN_SCENE"), loss.item(), loss_current_iteration)
 
                     elif data_type == SpartanDatasetDataType.DIFFERENT_OBJECT:
-                        self._tensorboard_logger.log_value("train loss DIFFERENT_OBJECT", loss.item(), loss_current_iteration)
+                        self._tensorboard_logger.log_value(
+                            f("{mode} loss DIFFERENT_OBJECT"), loss.item(), loss_current_iteration)
 
                     elif data_type == SpartanDatasetDataType.SINGLE_OBJECT_ACROSS_SCENE:
-                        self._tensorboard_logger.log_value("train loss SINGLE_OBJECT_ACROSS_SCENE", loss.item(), loss_current_iteration)
+                        self._tensorboard_logger.log_value(
+                            f("{mode} loss SINGLE_OBJECT_ACROSS_SCENE"), loss.item(), loss_current_iteration)
 
                     elif data_type == SpartanDatasetDataType.MULTI_OBJECT:
-                        self._tensorboard_logger.log_value("train loss MULTI_OBJECT", loss.item(), loss_current_iteration)
-                    
+                        self._tensorboard_logger.log_value(
+                            f("{mode} loss MULTI_OBJECT"), loss.item(), loss_current_iteration)
+
                     elif data_type == SpartanDatasetDataType.SYNTHETIC_MULTI_OBJECT:
-                        self._tensorboard_logger.log_value("train loss SYNTHETIC_MULTI_OBJECT", loss.item(), loss_current_iteration)
+                        self._tensorboard_logger.log_value(
+                            f("{mode} loss SYNTHETIC_MULTI_OBJECT"), loss.item(), loss_current_iteration)
                     else:
                         raise ValueError("unknown data type")
 
-
                     if data_type == SpartanDatasetDataType.DIFFERENT_OBJECT:
-                        self._tensorboard_logger.log_value("train different object", loss.item(), loss_current_iteration)
+                        self._tensorboard_logger.log_value(
+                            f("{mode} different object"), loss.item(), loss_current_iteration)
 
-                update_plots(loss, match_loss, masked_non_match_loss, background_non_match_loss, blind_non_match_loss)
+                update_plots(loss, match_loss, masked_non_match_loss,
+                             background_non_match_loss, blind_non_match_loss, mode="train")
 
                 if loss_current_iteration % save_rate == 0:
-                    self.save_network(dcn, optimizer, loss_current_iteration, logging_dict=self._logging_dict)
+                    self.save_network(
+                        dcn, optimizer, loss_current_iteration, logging_dict=self._logging_dict)
 
                 if loss_current_iteration % logging_rate == 0:
-                    logging.info("Training on iteration %d of %d" %(loss_current_iteration, max_num_iterations))
+                    logging.info("Training on iteration %d of %d" %
+                                 (loss_current_iteration, max_num_iterations))
 
-                    logging.info("single iteration took %.3f seconds" %(elapsed))
+                    logging.info(
+                        "single iteration took %.3f seconds" % (elapsed))
 
-                    percent_complete = loss_current_iteration * 100.0/(max_num_iterations - start_iteration)
-                    logging.info("Training is %d percent complete\n" %(percent_complete))
-
+                    percent_complete = loss_current_iteration * \
+                        100.0/(max_num_iterations - start_iteration)
+                    logging.info("Training is %d percent complete\n" %
+                                 (percent_complete))
 
                 # don't compute the test loss on the first few times through the loop
-                if self._config["training"]["compute_test_loss"] and (loss_current_iteration % compute_test_loss_rate == 0) and loss_current_iteration > 5:
+                if self._config["training"]["compute_test_loss"] and (loss_current_iteration % compute_test_loss_rate == 0 or
+                                                                      loss_current_iteration == 1):
                     logging.info("Computing test loss")
 
                     # delete the loss, match_loss, non_match_loss variables so that
@@ -434,8 +472,28 @@ class DenseCorrespondenceTraining(object):
                     gc.collect()
 
                     dcn.eval()
-                    test_loss, test_match_loss, test_non_match_loss = DCE.compute_loss_on_dataset(dcn,
-                                                                                                  self._data_loader_test, self._config['loss_function'], num_iterations=self._config['training']['test_loss_num_iterations'])
+                    test_loss, test_match_loss, test_non_match_loss, test_background_non_match_loss, test_blind_non_match_loss = self._dce.compute_loss_on_dataset(dcn,
+                                                                                                                                                                   self._data_loader_test, self.calc_losses, num_iterations=self._config['training']['test_loss_num_iterations'])
+
+                    update_plots(test_loss, test_match_loss, test_non_match_loss,
+                                 test_background_non_match_loss, test_blind_non_match_loss, mode="test")
+
+                    # Visually evaluate
+                    scene_list = self._dataset_test.get_list_of_objects()
+                    for object_id in scene_list:
+                        save_path = os.path.join(
+                            self.visual_eval_path, "%s_%d.png" % (object_id, loss_current_iteration))
+                        self._dce.evaluate_network_qualitative(
+                            dcn, dataset=self._dataset_test, randomize=True, object_id=object_id, num_image_pairs=1, save_path=save_path)
+
+                    test_loss = test_loss.item()
+                    test_match_loss = test_match_loss.item()
+                    test_non_match_loss = test_non_match_loss.item()
+
+                    percent_complete = int(loss_current_iteration *
+                                           100.0/(max_num_iterations - start_iteration))
+                    logging.info(
+                        f("Test loss @ iter {percent_complete}\%:\ntest_losss: {test_loss}, test_match_loss: {test_match_loss}, test_non_match_loss: {test_non_match_loss}"))
 
                     # delete these variables so we can free GPU memory
                     del test_loss, test_match_loss, test_non_match_loss
@@ -448,15 +506,17 @@ class DenseCorrespondenceTraining(object):
                     gc_start = time.time()
                     gc.collect()
                     gc_elapsed = time.time() - gc_start
-                    logging.debug("garbage collection took %.2d seconds" %(gc_elapsed))
+                    logging.debug(
+                        "garbage collection took %.2d seconds" % (gc_elapsed))
 
                 if loss_current_iteration > max_num_iterations:
-                    logging.info("Finished testing after %d iterations" % (max_num_iterations))
-                    self.save_network(dcn, optimizer, loss_current_iteration, logging_dict=self._logging_dict)
+                    logging.info("Finished testing after %d iterations" %
+                                 (max_num_iterations))
+                    self.save_network(
+                        dcn, optimizer, loss_current_iteration, logging_dict=self._logging_dict)
                     return
 
-
-    def setup_logging_dir(self):
+    def setup_logging_dir(self, start_iteration):
         """
         Sets up the directory where logs will be stored and config
         files written
@@ -467,22 +527,34 @@ class DenseCorrespondenceTraining(object):
         if 'logging_dir_name' in self._config['training']:
             dir_name = self._config['training']['logging_dir_name']
         else:
-            dir_name = utils.get_current_time_unique_name() +"_" + str(self._config['dense_correspondence_network']['descriptor_dimension']) + "d"
+            dir_name = utils.get_current_time_unique_name() + "_" + \
+                str(self._config['dense_correspondence_network']
+                    ['descriptor_dimension']) + "d"
 
         self._logging_dir_name = dir_name
 
-        self._logging_dir = os.path.join(utils.convert_data_relative_path_to_absolute_path(self._config['training']['logging_dir']), dir_name)
+        self._logging_dir = os.path.join(utils.convert_data_relative_path_to_absolute_path(
+            self._config['training']['logging_dir']), dir_name)
 
-        print "logging_dir:", self._logging_dir
+        print('dir_name: ', dir_name)
+        print("logging_dir:", self._logging_dir)
 
-        if os.path.isdir(self._logging_dir):
+        # Only delete existing logdir if training from scratch
+        # This only gets called inside run() so self.loaded_iteration will be defined before then
+        if os.path.isdir(self._logging_dir) and start_iteration == 0:
             shutil.rmtree(self._logging_dir)
 
         if not os.path.isdir(self._logging_dir):
             os.makedirs(self._logging_dir)
 
+        self.visual_eval_path = os.path.join(
+            self._logging_dir, "visual_evaluation")
+        if not os.path.isdir(self.visual_eval_path):
+            os.makedirs(self.visual_eval_path)
+
         # make the tensorboard log directory
-        self._tensorboard_log_dir = os.path.join(self._logging_dir, "tensorboard")
+        self._tensorboard_log_dir = os.path.join(
+            self._logging_dir, "tensorboard")
         if not os.path.isdir(self._tensorboard_log_dir):
             os.makedirs(self._tensorboard_log_dir)
 
@@ -505,14 +577,16 @@ class DenseCorrespondenceTraining(object):
         :rtype: None
         """
 
-        network_param_file = os.path.join(self._logging_dir, utils.getPaddedString(iteration, width=6) + ".pth")
+        network_param_file = os.path.join(
+            self._logging_dir, utils.getPaddedString(iteration, width=6) + ".pth")
         optimizer_param_file = network_param_file + ".opt"
         torch.save(dcn.state_dict(), network_param_file)
         torch.save(optimizer.state_dict(), optimizer_param_file)
 
         # also save loss history stuff
         if logging_dict is not None:
-            log_history_file = os.path.join(self._logging_dir, utils.getPaddedString(iteration, width=6) + "_log_history.yaml")
+            log_history_file = os.path.join(self._logging_dir, utils.getPaddedString(
+                iteration, width=6) + "_log_history.yaml")
             utils.saveToYaml(logging_dict, log_history_file)
 
             current_loss_file = os.path.join(self._logging_dir, 'loss.yaml')
@@ -520,26 +594,32 @@ class DenseCorrespondenceTraining(object):
 
             utils.saveToYaml(current_loss_data, current_loss_file)
 
-
-
-    def save_configs(self):
+    def save_configs(self, start_iteration=0):
         """
         Saves config files to the logging directory
         :return:
         :rtype: None
         """
-        training_params_file = os.path.join(self._logging_dir, 'training.yaml')
+        if start_iteration == 0:
+            train_yaml = "training.yaml"
+            dataset_yaml = "dataset.yaml"
+            identifier_yaml = "identifier.yaml"
+        else:
+            train_yaml = "training_iter_%d.yaml" % start_iteration
+            dataset_yaml = "dataset_iter_%d.yaml" % start_iteration
+            identifier_yaml = "identifier_iter_%d.yaml" % start_iteration
+
+        training_params_file = os.path.join(self._logging_dir, train_yaml)
         utils.saveToYaml(self._config, training_params_file)
 
-        dataset_params_file = os.path.join(self._logging_dir, 'dataset.yaml')
+        dataset_params_file = os.path.join(self._logging_dir, dataset_yaml)
         utils.saveToYaml(self._dataset.config, dataset_params_file)
 
         # make unique identifier
-        identifier_file = os.path.join(self._logging_dir, 'identifier.yaml')
+        identifier_file = os.path.join(self._logging_dir, identifier_yaml)
         identifier_dict = dict()
         identifier_dict['id'] = utils.get_unique_string()
         utils.saveToYaml(identifier_dict, identifier_file)
-
 
     def adjust_learning_rate(self, optimizer, iteration):
         """
@@ -555,7 +635,8 @@ class DenseCorrespondenceTraining(object):
         steps_between_learning_rate_decay = self._config['training']['steps_between_learning_rate_decay']
         if iteration % steps_between_learning_rate_decay == 0:
             for param_group in optimizer.param_groups:
-                param_group['lr'] = param_group['lr'] * self._config["training"]["learning_rate_decay"]
+                param_group['lr'] = param_group['lr'] * \
+                    self._config["training"]["learning_rate_decay"]
 
     @staticmethod
     def set_learning_rate(optimizer, learning_rate):
@@ -580,10 +661,10 @@ class DenseCorrespondenceTraining(object):
         # start tensorboard
         # cmd = "python -m tensorboard.main"
         logging.info("setting up tensorboard_logger")
-        cmd = "tensorboard --logdir=%s" %(self._tensorboard_log_dir)
-        self._tensorboard_logger = tensorboard_logger.Logger(self._tensorboard_log_dir)
+        cmd = "tensorboard --logdir=%s" % (self._tensorboard_log_dir)
+        self._tensorboard_logger = tensorboard_logger.Logger(
+            self._tensorboard_log_dir)
         logging.info("tensorboard logger started")
-
 
     @staticmethod
     def load_default_config():
@@ -598,4 +679,3 @@ class DenseCorrespondenceTraining(object):
     def make_default():
         dataset = SpartanDataset.make_default_caterpillar()
         return DenseCorrespondenceTraining(dataset=dataset)
-

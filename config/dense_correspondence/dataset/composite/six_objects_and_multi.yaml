@@ -7,6 +7,7 @@ single_object_scenes_config_files:
 - headphones.yaml
 - yellow_robot.yaml
 - dramamine.yaml
+- star_bot.yaml
 
-multi_object_scenes_config_files:
-- multi_object.yaml
+multi_object_scenes_config_files: []
+# - multi_object.yaml

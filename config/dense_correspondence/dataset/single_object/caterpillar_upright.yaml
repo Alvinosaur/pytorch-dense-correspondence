@@ -17,6 +17,9 @@ test:
 - "2018-04-10-16-11-10" # upright buckles undone
 - "2018-04-16-14-46-36" # upright
 
+image_normalization:
+ mean: [0.5806, 0.4531, 0.4439]
+ std_dev: [0.2477, 0.2948, 0.3109]
 
 evaluation_labeled_data_path: 
 - "evaluation_labeled_data/caterpillar_cross_scene_labels.yaml"
