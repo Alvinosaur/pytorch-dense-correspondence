@@ -7,24 +7,27 @@ import socket
 import getpass
 import yaml
 
-if __name__=="__main__":
+if __name__ == "__main__":
     user_name = getpass.getuser()
     default_image_name = user_name + '-pytorch-dense-correspondence'
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--image", type=str,
-        help="(required) name of the image that this container is derived from", default=default_image_name)
+                        help="(required) name of the image that this container is derived from", default=default_image_name)
 
     parser.add_argument("-c", "--container", type=str, default="pytorch-container", help="(optional) name of the container")\
 
-    parser.add_argument("-d", "--dry_run", action='store_true', help="(optional) perform a dry_run, print the command that would have been executed but don't execute it.")
+    parser.add_argument("-d", "--dry_run", action='store_true',
+                        help="(optional) perform a dry_run, print the command that would have been executed but don't execute it.")
 
-    parser.add_argument("-e", "--entrypoint", type=str, default="", help="(optional) thing to run in container")
+    parser.add_argument("-e", "--entrypoint", type=str,
+                        default="", help="(optional) thing to run in container")
 
-    parser.add_argument("-p", "--passthrough", type=str, default="", help="(optional) extra string that will be tacked onto the docker run command, allows you to pass extra options. Make sure to put this in quotes and leave a space before the first character")
+    parser.add_argument("-p", "--passthrough", type=str, default="",
+                        help="(optional) extra string that will be tacked onto the docker run command, allows you to pass extra options. Make sure to put this in quotes and leave a space before the first character")
 
     args = parser.parse_args()
-    print("running docker container derived from image %s" %args.image)
-    source_dir=os.path.join(os.getcwd(),"../")
+    print("running docker container derived from image %s" % args.image)
+    source_dir = os.path.join(os.getcwd(), "../")
     config_file = os.path.join(source_dir, 'config', 'docker_run_config.yaml')
 
     print(source_dir)
@@ -36,17 +39,24 @@ if __name__=="__main__":
     cmd = "xhost +local:root \n"
     cmd += "nvidia-docker run "
     if args.container:
-        cmd += " --name %(container_name)s " % {'container_name': args.container}
+        cmd += " --name %(container_name)s " % {
+            'container_name': args.container}
 
-    cmd += " -e DISPLAY -e QT_X11_NO_MITSHM=1 -v /tmp/.X11-unix:/tmp/.X11-unix:rw "     # enable graphics 
+    # enable graphics
+    cmd += " -e DISPLAY -e QT_X11_NO_MITSHM=1 -v /tmp/.X11-unix:/tmp/.X11-unix:rw "
     cmd += " -v %(source_dir)s:%(home_directory)s/code "  \
         % {'source_dir': source_dir, 'home_directory': home_directory}              # mount source
-    cmd += " -v ~/.ssh:%(home_directory)s/.ssh " % {'home_directory': home_directory}   # mount ssh keys
-    cmd += " -v /media:/media " #mount media
-    cmd += " -v ~/.torch:%(home_directory)s/.torch " % {'home_directory': home_directory}  # mount torch folder 
-                                                        # where pytorch standard models (i.e. resnet34) are stored
+    # mount ssh keys
+    cmd += " -v ~/.ssh:%(home_directory)s/.ssh " % {
+        'home_directory': home_directory}
+    cmd += " -v /media:/media "  # mount media
+    # mount torch folder
+    cmd += " -v ~/.torch:%(home_directory)s/.torch " % {
+        'home_directory': home_directory}
+    # where pytorch standard models (i.e. resnet34) are stored
 
-    cmd += " --user %s " % user_name                                                    # login as current user
+    # login as current user
+    cmd += " --user %s " % user_name
 
     # uncomment below to mount your data volume
     with open(config_file, "r") as stream:
@@ -54,7 +64,8 @@ if __name__=="__main__":
     host_name = socket.gethostname()
     print(host_name)
     print(user_name)
-    cmd += " -v %s:%s/data " %(config_yaml[host_name][user_name]['path_to_data_directory'], home_directory)
+    cmd += " -v %s:%s/data " % (config_yaml[host_name]
+                                [user_name]['path_to_data_directory'], home_directory)
 
     # expose UDP ports
     cmd += " -p 8888:8888 "
@@ -65,15 +76,13 @@ if __name__=="__main__":
 
     cmd += " " + args.passthrough + " "
 
-    cmd += " --privileged -v /dev/bus/usb:/dev/bus/usb " # allow usb access
+    cmd += " --privileged -v /dev/bus/usb:/dev/bus/usb "  # allow usb access
 
-    cmd += " --rm " # remove the image when you exit
-
-
-
+    cmd += " --rm "  # remove the image when you exit
 
     if args.entrypoint and args.entrypoint != "":
-        cmd += "--entrypoint=\"%(entrypoint)s\" " % {"entrypoint": args.entrypoint}
+        cmd += "--entrypoint=\"%(entrypoint)s\" " % {
+            "entrypoint": args.entrypoint}
     else:
         cmd += "-it "
     cmd += args.image

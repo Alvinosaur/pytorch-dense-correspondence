@@ -16,15 +16,16 @@ import datetime
 from PIL import Image
 
 
-
-
 import dense_correspondence_manipulation.utils.transformations as transformations
+
 
 def getDictFromYamlFilename(filename):
     """
     Read data from a YAML files
     """
     return yaml.load(open(filename), Loader=CLoader)
+    # return yaml.load(open(filename))
+
 
 def saveToYaml(data, filename, flush=False):
     """
@@ -47,15 +48,18 @@ def saveToYaml(data, filename, flush=False):
 def getDenseCorrespondenceSourceDir():
     return os.getenv("DC_SOURCE_DIR")
 
+
 def get_data_dir():
     # return os.getenv("DC_DATA_DIR")
     return "/home/ashek/code/data/pdc"
+
 
 def getPdcPath():
     """
     For backwards compatibility
     """
     return get_data_dir()
+
 
 def dictFromPosQuat(pos, quat):
     """
@@ -87,14 +91,16 @@ def getQuaternionFromDict(d):
         if name in d:
             quat = d[name]
 
-
     if quat is None:
-        raise ValueError("Error when trying to extract quaternion from dict, your dict doesn't contain a key in ['orientation', 'rotation', 'quaternion']")
+        raise ValueError(
+            "Error when trying to extract quaternion from dict, your dict doesn't contain a key in ['orientation', 'rotation', 'quaternion']")
 
     return quat
 
+
 def getPaddedString(idx, width=6):
     return str(idx).zfill(width)
+
 
 def set_cuda_visible_devices(gpu_list):
     """
@@ -115,6 +121,7 @@ def set_cuda_visible_devices(gpu_list):
     print("setting CUDA_VISIBLE_DEVICES = ", cuda_visible_devices)
     os.environ["CUDA_VISIBLE_DEVICES"] = cuda_visible_devices
 
+
 def set_default_cuda_visible_devices():
     config = get_defaults_config()
     host_name = socket.gethostname()
@@ -124,9 +131,11 @@ def set_default_cuda_visible_devices():
             gpu_list = config[host_name][user_name]["cuda_visible_devices"]
             set_cuda_visible_devices(gpu_list)
 
+
 def get_defaults_config():
     dc_source_dir = getDenseCorrespondenceSourceDir()
-    default_config_file = os.path.join(dc_source_dir, 'config', 'defaults.yaml')
+    default_config_file = os.path.join(
+        dc_source_dir, 'config', 'defaults.yaml')
 
     return getDictFromYamlFilename(default_config_file)
 
@@ -135,15 +144,18 @@ def add_dense_correspondence_to_python_path():
     dc_source_dir = getDenseCorrespondenceSourceDir()
     sys.path.append(dc_source_dir)
 
-    # TODO Pete: potentially only add the pytorch-segmentation-detection stuff 
+    # TODO Pete: potentially only add the pytorch-segmentation-detection stuff
     # if using this backbone architecture
-    sys.path.append(os.path.join(dc_source_dir, 'external/pytorch-segmentation-detection'))
+    sys.path.append(os.path.join(
+        dc_source_dir, 'external/pytorch-segmentation-detection'))
 
     # Add Object Pursuit
     sys.path.append(os.path.join(dc_source_dir, 'external/Object-Pursuit'))
 
     # for some reason it is critical that this be at the beginning . . .
-    sys.path.insert(0, os.path.join(dc_source_dir, 'external/pytorch-segmentation-detection', 'vision'))
+    sys.path.insert(0, os.path.join(
+        dc_source_dir, 'external/pytorch-segmentation-detection', 'vision'))
+
 
 def add_object_pursuit_to_python_path():
     dc_source_dir = getDenseCorrespondenceSourceDir()
@@ -162,9 +174,9 @@ def convert_to_absolute_path(path):
     if os.path.isdir(path):
         return path
 
-
     home_dir = os.path.expanduser("~")
     return os.path.join(home_dir, path)
+
 
 def convert_data_relative_path_to_absolute_path(path, assert_path_exists=False):
     """
@@ -191,10 +203,10 @@ def convert_data_relative_path_to_absolute_path(path, assert_path_exists=False):
             start_path = "code/data_volume/pdc"
             rel_path = os.path.relpath(path, start_path)
             full_path = os.path.join(get_data_dir(), rel_path)
-        
-        if not os.path.exists(full_path):
-            raise ValueError("full_path %s not found, you asserted that path exists" %(full_path))
 
+        if not os.path.exists(full_path):
+            raise ValueError(
+                "full_path %s not found, you asserted that path exists" % (full_path))
 
     return full_path
 
@@ -209,28 +221,30 @@ def get_current_time_unique_name():
     unique_name = time.strftime("%Y%m%d-%H%M%S")
     return unique_name
 
+
 def homogenous_transform_from_dict(d):
     """
     Returns a transform from a standard encoding in dict format
     :param d:
     :return:
     """
-    pos = [0]*3
+    pos = [0] * 3
     pos[0] = d['translation']['x']
     pos[1] = d['translation']['y']
     pos[2] = d['translation']['z']
 
     quatDict = getQuaternionFromDict(d)
-    quat = [0]*4
+    quat = [0] * 4
     quat[0] = quatDict['w']
     quat[1] = quatDict['x']
     quat[2] = quatDict['y']
     quat[3] = quatDict['z']
 
     transform_matrix = transformations.quaternion_matrix(quat)
-    transform_matrix[0:3,3] = np.array(pos)
+    transform_matrix[0:3, 3] = np.array(pos)
 
     return transform_matrix
+
 
 def compute_distance_between_poses(pose_a, pose_b):
     """
@@ -243,10 +257,11 @@ def compute_distance_between_poses(pose_a, pose_b):
     :rtype:
     """
 
-    pos_a = pose_a[0:3,3]
-    pos_b = pose_b[0:3,3]
+    pos_a = pose_a[0:3, 3]
+    pos_b = pose_b[0:3, 3]
 
     return np.linalg.norm(pos_a - pos_b)
+
 
 def compute_angle_between_quaternions(q, r):
     """
@@ -263,8 +278,9 @@ def compute_angle_between_quaternions(q, r):
     :rtype:
     """
 
-    theta = 2*np.arccos(2 * np.dot(q,r)**2 - 1)
+    theta = 2 * np.arccos(2 * np.dot(q, r)**2 - 1)
     return theta
+
 
 def compute_angle_between_poses(pose_a, pose_b):
     """
@@ -281,7 +297,6 @@ def compute_angle_between_poses(pose_a, pose_b):
     quat_b = transformations.quaternion_from_matrix(pose_b)
 
     return compute_angle_between_quaternions(quat_a, quat_b)
-
 
 
 def get_model_param_file_from_directory(model_folder, iteration=None):
@@ -328,14 +343,16 @@ def flattened_pixel_locations_to_u_v(flat_pixel_locations, image_width):
     the pixel and the second column is the v coordinate
 
     """
-    return (flat_pixel_locations%image_width, flat_pixel_locations/image_width)
+    return (flat_pixel_locations % image_width, flat_pixel_locations / image_width)
+
 
 def uv_to_flattened_pixel_locations(uv_tuple, image_width):
     """
     Converts to a flat tensor
     """
-    flat_pixel_locations = uv_tuple[1]*image_width + uv_tuple[0]
+    flat_pixel_locations = uv_tuple[1] * image_width + uv_tuple[0]
     return flat_pixel_locations
+
 
 def reset_random_seed():
     SEED = 1
@@ -354,6 +371,7 @@ def load_rgb_image(rgb_filename):
     """
     return Image.open(rgb_filename).convert('RGB')
 
+
 def pil_image_to_cv2(pil_image):
     """
     Converts a PIL image to a cv2 image
@@ -363,7 +381,8 @@ def pil_image_to_cv2(pil_image):
     :return: np.array [H,W,3]
     :rtype:
     """
-    return np.array(pil_image)[:, :, ::-1].copy() # open and convert between BGR and RGB
+    return np.array(pil_image)[:, :, ::-1].copy()  # open and convert between BGR and RGB
+
 
 def get_current_YYYY_MM_DD_hh_mm_ss():
     """
@@ -386,7 +405,8 @@ def get_current_YYYY_MM_DD_hh_mm_ss():
     """
 
     now = datetime.datetime.now()
-    string =  "%0.4d-%0.2d-%0.2d-%0.2d-%0.2d-%0.2d" % (now.year, now.month, now.day, now.hour, now.minute, now.second)
+    string = "%0.4d-%0.2d-%0.2d-%0.2d-%0.2d-%0.2d" % (
+        now.year, now.month, now.day, now.hour, now.minute, now.second)
     return string
 
 
@@ -397,14 +417,16 @@ def get_unique_string():
     :rtype:
     """
 
-    string = get_current_YYYY_MM_DD_hh_mm_ss() + "_" + str(random.randint(0,1000))
+    string = get_current_YYYY_MM_DD_hh_mm_ss() + "_" + str(random.randint(0, 1000))
     return string
+
 
 class CameraIntrinsics(object):
     """
     Useful class for wrapping camera intrinsics and loading them from a
     camera_info.yaml file
     """
+
     def __init__(self, cx, cy, fx, fy, width, height):
         self.cx = cx
         self.cy = cy
@@ -416,7 +438,7 @@ class CameraIntrinsics(object):
         self.K = self.get_camera_matrix()
 
     def get_camera_matrix(self):
-        return np.array([[self.fx, 0, self.cx], [0, self.fy, self.cy], [0,0,1]])
+        return np.array([[self.fx, 0, self.cx], [0, self.fy, self.cy], [0, 0, 1]])
 
     @staticmethod
     def from_yaml_file(filename):
@@ -432,4 +454,3 @@ class CameraIntrinsics(object):
         height = config['image_height']
 
         return CameraIntrinsics(cx, cy, fx, fy, width, height)
-

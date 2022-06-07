@@ -1,3 +1,6 @@
+import dense_correspondence_manipulation.utils.utils as utils
+utils.add_dense_correspondence_to_python_path()
+
 import dense_correspondence.correspondence_tools.correspondence_augmentation as correspondence_augmentation
 import dense_correspondence.correspondence_tools.correspondence_finder as correspondence_finder
 from pytorch_segmentation_detection.transforms import ComposeJoint
@@ -16,8 +19,6 @@ import glob
 from PIL import Image
 
 import sys
-import dense_correspondence_manipulation.utils.utils as utils
-utils.add_dense_correspondence_to_python_path()
 
 
 # This implements a subclass for a data.Dataset class in PyTorch
@@ -34,6 +35,14 @@ class ImageType:
     RGB = 0
     DEPTH = 1
     MASK = 2
+
+
+class SpartanDatasetDataType:
+    SINGLE_OBJECT_WITHIN_SCENE = 0
+    SINGLE_OBJECT_ACROSS_SCENE = 1
+    DIFFERENT_OBJECT = 2
+    MULTI_OBJECT = 3
+    SYNTHETIC_MULTI_OBJECT = 4
 
 
 class DenseCorrespondenceDataset(data.Dataset):
@@ -203,12 +212,12 @@ class DenseCorrespondenceDataset(data.Dataset):
             uv_b_non_matches[0].view(-1, 1), uv_b_non_matches[1].view(-1, 1))
 
         # flatten correspondences and non_correspondences
-        matches_a = uv_a[1].long()*image_width+uv_a[0].long()
-        matches_b = uv_b[1].long()*image_width+uv_b[0].long()
-        non_matches_a = uv_a_long[1].long()*image_width+uv_a_long[0].long()
+        matches_a = uv_a[1].long() * image_width + uv_a[0].long()
+        matches_b = uv_b[1].long() * image_width + uv_b[0].long()
+        non_matches_a = uv_a_long[1].long() * image_width + uv_a_long[0].long()
         non_matches_a = non_matches_a.squeeze(1)
         non_matches_b = uv_b_non_matches_long[1].long(
-        )*image_width+uv_b_non_matches_long[0].long()
+        ) * image_width + uv_b_non_matches_long[0].long()
         non_matches_b = non_matches_b.squeeze(1)
 
         return "matches", image_a_rgb, image_b_rgb, matches_a, matches_b, non_matches_a, non_matches_b, metadata
@@ -420,10 +429,10 @@ class DenseCorrespondenceDataset(data.Dataset):
         q *= math.sqrt(2.0 / n)
         q = np.outer(q, q)
         return np.array([
-            [1.0-q[2, 2]-q[3, 3],     q[1, 2]-q[3, 0],     q[1, 3]+q[2, 0], 0.0],
-            [q[1, 2]+q[3, 0], 1.0-q[1, 1]-q[3, 3],     q[2, 3]-q[1, 0], 0.0],
-            [q[1, 3]-q[2, 0],     q[2, 3]+q[1, 0], 1.0-q[1, 1]-q[2, 2], 0.0],
-            [0.0,                 0.0,                 0.0, 1.0]])
+            [1.0 - q[2, 2] - q[3, 3], q[1, 2] - q[3, 0], q[1, 3] + q[2, 0], 0.0],
+            [q[1, 2] + q[3, 0], 1.0 - q[1, 1] - q[3, 3], q[2, 3] - q[1, 0], 0.0],
+            [q[1, 3] - q[2, 0], q[2, 3] + q[1, 0], 1.0 - q[1, 1] - q[2, 2], 0.0],
+            [0.0, 0.0, 0.0, 1.0]])
 
     def elasticfusion_pose_to_homogeneous_transform(self, lf_pose):
         homogeneous_transform = self.quaternion_matrix(
@@ -516,7 +525,7 @@ class DenseCorrespondenceDataset(data.Dataset):
 
     def use_all_available_scenes(self):
         self.scenes = [os.path.basename(x)
-                       for x in glob.glob(self.logs_root_path+"*")]
+                       for x in glob.glob(self.logs_root_path + "*")]
 
     def set_train_test_split_from_yaml(self, yaml_config_file_full_path):
         """
@@ -570,47 +579,45 @@ class DenseCorrespondenceDataset(data.Dataset):
 
         self._use_image_b_mask_inv = training_config["training"]["use_image_b_mask_inv"]
 
-        from spartan_dataset_masked import SpartanDatasetDataType
-
         self._data_load_types = []
         self._data_load_type_probabilities = []
 
         p = training_config["training"]["data_type_probabilities"]["SINGLE_OBJECT_WITHIN_SCENE"]
         if p > 0:
-            print "using SINGLE_OBJECT_WITHIN_SCENE"
+            print("using SINGLE_OBJECT_WITHIN_SCENE")
             self._data_load_types.append(
                 SpartanDatasetDataType.SINGLE_OBJECT_WITHIN_SCENE)
             self._data_load_type_probabilities.append(p)
 
         p = training_config["training"]["data_type_probabilities"]["SINGLE_OBJECT_ACROSS_SCENE"]
         if p > 0:
-            print "using SINGLE_OBJECT_ACROSS_SCENE"
+            print("using SINGLE_OBJECT_ACROSS_SCENE")
             self._data_load_types.append(
                 SpartanDatasetDataType.SINGLE_OBJECT_ACROSS_SCENE)
             self._data_load_type_probabilities.append(p)
 
         p = training_config["training"]["data_type_probabilities"]["DIFFERENT_OBJECT"]
         if p > 0:
-            print "using DIFFERENT_OBJECT"
+            print("using DIFFERENT_OBJECT")
             self._data_load_types.append(
                 SpartanDatasetDataType.DIFFERENT_OBJECT)
             self._data_load_type_probabilities.append(p)
 
         p = training_config["training"]["data_type_probabilities"]["MULTI_OBJECT"]
         if p > 0:
-            print "using MULTI_OBJECT"
+            print("using MULTI_OBJECT")
             self._data_load_types.append(SpartanDatasetDataType.MULTI_OBJECT)
             self._data_load_type_probabilities.append(p)
 
         p = training_config["training"]["data_type_probabilities"]["SYNTHETIC_MULTI_OBJECT"]
         if p > 0:
-            print "using SYNTHETIC_MULTI_OBJECT"
+            print("using SYNTHETIC_MULTI_OBJECT")
             self._data_load_types.append(
                 SpartanDatasetDataType.SYNTHETIC_MULTI_OBJECT)
             self._data_load_type_probabilities.append(p)
 
         self._data_load_type_probabilities = np.array(
-            self._data_load_type_probabilities)
+            self._data_load_type_probabilities, dtype=np.float)
         self._data_load_type_probabilities /= np.sum(
             self._data_load_type_probabilities)
 
@@ -681,7 +688,7 @@ class DenseCorrespondenceDataset(data.Dataset):
 
         img_mean_sum = torch.zeros([3])
 
-        for i in xrange(0, num_image_samples):
+        for i in range(0, num_image_samples):
             img = get_random_image()
             img_tensor = to_tensor(img)
             single_img_mean = get_image_mean(img_tensor)
@@ -693,7 +700,7 @@ class DenseCorrespondenceDataset(data.Dataset):
 
         std_dev_sum = None
 
-        for i in xrange(0, num_image_samples):
+        for i in range(0, num_image_samples):
             img = get_random_image()
             img_tensor = to_tensor(img)
             single_std_dev = get_image_std_dev(img_tensor)
@@ -703,8 +710,8 @@ class DenseCorrespondenceDataset(data.Dataset):
 
             std_dev_sum += single_std_dev
 
-        img_mean = 1.0/num_image_samples * img_mean_sum
-        std_dev = 1.0/num_image_samples * std_dev_sum
+        img_mean = 1.0 / num_image_samples * img_mean_sum
+        std_dev = 1.0 / num_image_samples * std_dev_sum
 
         return img_mean, std_dev
 
@@ -733,9 +740,9 @@ class DenseCorrespondenceDataset(data.Dataset):
         plt.show()
         plt.imshow(image_a_depth)
         plt.show()
-        print "image_a_pose", image_a_pose
+        print("image_a_pose", image_a_pose)
         plt.imshow(image_b_rgb)
         plt.show()
         plt.imshow(image_b_depth)
         plt.show()
-        print "image_b_pose", image_b_pose
+        print("image_b_pose", image_b_pose)

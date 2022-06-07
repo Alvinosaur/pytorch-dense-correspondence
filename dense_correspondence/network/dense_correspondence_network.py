@@ -256,9 +256,9 @@ class DenseCorrespondenceNetwork(nn.Module):
 
         res = self.fcn(img_tensor)
         if self._normalize:
-            #print "normalizing descriptor norm"
+            #print("normalizing descriptor norm")
             norm = torch.norm(res, 2, 1)  # [N,1,H,W]
-            res = res/norm
+            res = res / norm
 
         return res
 
@@ -285,13 +285,13 @@ class DenseCorrespondenceNetwork(nn.Module):
         img_tensor = torch.tensor(img_tensor, device=self.device)
 
         res = self.forward(img_tensor)  # shape [1,D,H,W]
-        # print "res.shape 1", res.shape
+        # print("res.shape 1", res.shape)
 
         res = res.squeeze(0)  # shape [D,H,W]
-        # print "res.shape 2", res.shape
+        # print("res.shape 2", res.shape)
 
         res = res.permute(1, 2, 0)  # shape [H,W,D]
-        # print "res.shape 3", res.shape
+        # print("res.shape 3", res.shape)
 
         return res
 
@@ -306,7 +306,6 @@ class DenseCorrespondenceNetwork(nn.Module):
         :return: same as input, new shape is [N, W*H, descriptor_dim]
         :rtype:
         """
-
         W = self._image_width
         H = self._image_height
         image_pred = image_pred.view(N, self.descriptor_dimension, W * H)
@@ -381,7 +380,7 @@ class DenseCorrespondenceNetwork(nn.Module):
         return fcn
 
     @staticmethod
-    def from_config(config, load_stored_params=True, model_param_file=None):
+    def from_config(cls, config, load_stored_params=True, model_param_file=None):
         """
         Load a network from a configuration
 
@@ -409,19 +408,18 @@ class DenseCorrespondenceNetwork(nn.Module):
             config["backbone"]["model_class"] = "Resnet"
             config["backbone"]["resnet_name"] = "Resnet34_8s"
 
-        fcn = DenseCorrespondenceNetwork.get_fcn(config)
+        fcn = cls.get_fcn(config)
 
         if 'normalize' in config:
             normalize = config['normalize']
         else:
             normalize = False
 
-        print(config['device'])
-        dcn = DenseCorrespondenceNetwork(fcn, config['descriptor_dimension'],
-                                         image_width=config['image_width'],
-                                         image_height=config['image_height'],
-                                         normalize=normalize,
-                                         device=config['device'])
+        dcn = cls(fcn, config['descriptor_dimension'],
+                  image_width=config['image_width'],
+                  image_height=config['image_height'],
+                  normalize=normalize,
+                  device=config['device'])
 
         if load_stored_params:
             assert model_param_file is not None
@@ -439,10 +437,10 @@ class DenseCorrespondenceNetwork(nn.Module):
         return dcn
 
     @staticmethod
-    def from_model_folder(model_folder, load_stored_params=True, model_param_file=None,
+    def from_model_folder(cls, model_folder, load_stored_params=True, model_param_file=None,
                           iteration=None):
         """
-        Loads a DenseCorrespondenceNetwork from a model folder
+        Loads a OPMultiDenseCorrespondenceNetwork from a model folder
         :param model_folder: the path to the folder where the model is stored. This direction contains
         files like
 
@@ -472,13 +470,12 @@ class DenseCorrespondenceNetwork(nn.Module):
         config["model_param_filename_tail"] = os.path.split(model_param_file)[
             1]
 
-        dcn = DenseCorrespondenceNetwork.from_config(config,
-                                                     load_stored_params=load_stored_params,
-                                                     model_param_file=model_param_file)
+        dcn = cls.from_config(config,
+                              load_stored_params=load_stored_params,
+                              model_param_file=model_param_file)
 
         # whether or not network was constructed from model folder
         dcn.constructed_from_model_folder = from_model_folder
-
         dcn.model_folder = model_folder
         return dcn
 
@@ -501,14 +498,14 @@ class DenseCorrespondenceNetwork(nn.Module):
         height, width, _ = res_a.shape
 
         if debug:
-            print "height: ", height
-            print "width: ", width
-            print "res_b.shape: ", res_b.shape
+            print("height: ", height)
+            print("width: ", width)
+            print("res_b.shape: ", res_b.shape)
 
         # non-vectorized version
         # norm_diffs = np.zeros([height, width])
-        # for i in xrange(0, height):
-        #     for j in xrange(0, width):
+        # for i in range(0, height):
+        #     for j in range(0, width):
         #         norm_diffs[i,j] = np.linalg.norm(res_b[i,j] - descriptor_at_pixel)**2
 
         norm_diffs = np.sqrt(

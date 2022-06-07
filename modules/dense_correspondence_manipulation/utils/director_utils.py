@@ -38,7 +38,8 @@ def transformFromPose(d):
     quat[3] = quatDict['z']
 
     return transformUtils.transformFromPose(pos, quat)
-    
+
+
 def getCameraTransform(camera):
     """
     Camera transform has X - right, Y - down, Z-forward
@@ -48,10 +49,9 @@ def getCameraTransform(camera):
     position = np.array(camera.GetPosition())
     view_up = np.array(camera.GetViewUp())
 
-
     forward_dir = focal_point - position
     if np.linalg.norm(forward_dir) < 1e-8:
-        print "forward_dir norm was very small, setting to [1,0,0]"
+        print("forward_dir norm was very small, setting to [1,0,0]")
         forward_dir = [1.0, 0.0, 0.0]
 
     up_dir = np.array(view_up)
@@ -61,14 +61,13 @@ def getCameraTransform(camera):
     xaxis = np.cross(yaxis, zaxis)
     yaxis = np.cross(zaxis, xaxis)
 
-
     # normalize the axes
     xaxis /= np.linalg.norm(xaxis)
     yaxis /= np.linalg.norm(yaxis)
     zaxis /= np.linalg.norm(zaxis)
 
-
     return transformUtils.getTransformFromAxesAndOrigin(xaxis, yaxis, zaxis, position)
+
 
 def setCameraTransform(camera, transform):
     """
@@ -91,6 +90,7 @@ def setCameraTransform(camera, transform):
     camera.SetFocalPoint(origin+axes[2])
     camera.SetViewUp(-axes[1])
     camera.Modified()
+
 
 def focalLengthToViewAngle(focalLength, imageHeight):
     '''Returns a view angle in degrees that can be set on a vtkCamera'''
@@ -122,10 +122,11 @@ def setCameraIntrinsics(view, cameraIntrinsics, lockViewSize=True):
 
     # make sure view.height and cameraIntrinsics.height match
     if (view.height != imageHeight) or (view.width != imageWidth):
-        raise ValueError('CameraIntrinsics image dimensions (%d, %d) must match view image dimensions (%d,%d)' %(imageWidth, imageHeight, view.width, view.height))
+        raise ValueError('CameraIntrinsics image dimensions (%d, %d) must match view image dimensions (%d,%d)' % (
+            imageWidth, imageHeight, view.width, view.height))
 
     wcx = -2*(cx - float(imageWidth)/2) / imageWidth
-    wcy =  2*(cy - float(imageHeight)/2) / imageHeight
+    wcy = 2*(cy - float(imageHeight)/2) / imageHeight
     viewAngle = focalLengthToViewAngle(fy, imageHeight)
 
     camera = view.camera()
@@ -154,7 +155,8 @@ def cropToLineSegment(polyData, point1, point2, data_type='cells'):
     length = np.linalg.norm(line)
     axis = line / length
 
-    polyData = labelPointDistanceAlongAxis(polyData, axis, origin=point1, resultArrayName='dist_along_line')
+    polyData = labelPointDistanceAlongAxis(
+        polyData, axis, origin=point1, resultArrayName='dist_along_line')
 
     if data_type == "cells":
         return filterUtils.thresholdCells(polyData, 'dist_along_line', [0.0, length], arrayType="points")
@@ -162,7 +164,8 @@ def cropToLineSegment(polyData, point1, point2, data_type='cells'):
     elif data_type == "points":
         return filterUtils.thresholdPoints(polyData, 'dist_along_line', [0.0, length])
     else:
-        raise ValueError("unknown data_type = %s" %(data_type))
+        raise ValueError("unknown data_type = %s" % (data_type))
+
 
 def cropToBox(polyData, transform, dimensions, data_type='cells'):
     '''
@@ -173,10 +176,9 @@ def cropToBox(polyData, transform, dimensions, data_type='cells'):
 
     for axis, length in zip(axes, dimensions):
         cropAxis = np.array(axis)*(length/2.0)
-        polyData = cropToLineSegment(polyData, origin - cropAxis, origin + cropAxis)
+        polyData = cropToLineSegment(
+            polyData, origin - cropAxis, origin + cropAxis)
 
     return polyData
 
 #######################################################################################
-
-

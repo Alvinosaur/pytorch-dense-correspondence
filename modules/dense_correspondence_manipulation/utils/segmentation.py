@@ -75,7 +75,8 @@ def cropToLineSegment(polyData, point1, point2):
     length = np.linalg.norm(line)
     axis = line / length
 
-    polyData = labelPointDistanceAlongAxis(polyData, axis, origin=point1, resultArrayName='dist_along_line')
+    polyData = labelPointDistanceAlongAxis(
+        polyData, axis, origin=point1, resultArrayName='dist_along_line')
     return thresholdPoints(polyData, 'dist_along_line', [0.0, length])
 
 
@@ -87,8 +88,8 @@ import vtkFiltersGeneralPython as filtersGeneral
 points = inputs[0]
 block = inputs[1]
 
-print points.GetNumberOfPoints()
-print block.GetNumberOfPoints()
+print(points.GetNumberOfPoints())
+print(block.GetNumberOfPoints())
 
 if points.GetNumberOfPoints() < block.GetNumberOfPoints():
     block, points = points, block
@@ -165,7 +166,8 @@ class DisparityPointCloudItem(vis.PolyDataItem):
         self.addProperty('Channel', imagesChannel)
         self.addProperty('Camera name', cameraName)
 
-        self.addProperty('Decimation', 0, attributes=om.PropertyAttributes(enumNames=['1', '2', '4', '8', '16']))
+        self.addProperty('Decimation', 0, attributes=om.PropertyAttributes(
+            enumNames=['1', '2', '4', '8', '16']))
         self.addProperty('Remove Size', 1000,
                          attributes=om.PropertyAttributes(decimals=0, minimum=0, maximum=100000.0, singleStep=1000))
         self.addProperty('Target FPS', 1.0,
@@ -204,7 +206,7 @@ class DisparityPointCloudItem(vis.PolyDataItem):
         utime = self.imageManager.queue.getCurrentImageTime(self.cameraName)
         if utime == self.lastUtime:
             if self.getProperty('Remove Stale Data') and (
-                (time.time() - self.lastDataReceivedTime) > self.getProperty('Stale Data Timeout')):
+                    (time.time() - self.lastDataReceivedTime) > self.getProperty('Stale Data Timeout')):
                 if self.polyData.GetNumberOfPoints() > 0:
                     self.setPolyData(vtk.vtkPolyData())
             return
@@ -218,7 +220,8 @@ class DisparityPointCloudItem(vis.PolyDataItem):
         removeSize = int(self.properties.getProperty('Remove Size'))
         rangeThreshold = float(self.properties.getProperty('Max Range'))
         polyData = getDisparityPointCloud(decimation, imagesChannel=self.getProperty('Channel'),
-                                          cameraName=self.getProperty('Camera name'),
+                                          cameraName=self.getProperty(
+                                              'Camera name'),
                                           removeOutliers=False, removeSize=removeSize, rangeThreshold=rangeThreshold)
 
         self.setPolyData(polyData)
@@ -253,7 +256,8 @@ def segmentGround(polyData, groundThickness=0.02, sceneHeightFromGround=0.05):
     searchRegion = thresholdPoints(polyData, 'z', [groundHeight - searchRegionThickness / 2.0,
                                                    groundHeight + searchRegionThickness / 2.0])
 
-    updatePolyData(searchRegion, 'ground search region', parent=getDebugFolder(), colorByName='z', visible=False)
+    updatePolyData(searchRegion, 'ground search region',
+                   parent=getDebugFolder(), colorByName='z', visible=False)
 
     _, origin, normal = applyPlaneFit(searchRegion, distanceThreshold=0.02, expectedNormal=[0, 0, 1],
                                       perpendicularAxis=[0, 0, 1], returnOrigin=True)
@@ -262,8 +266,10 @@ def segmentGround(polyData, groundThickness=0.02, sceneHeightFromGround=0.05):
     dist = np.dot(points - origin, normal)
     vtkNumpy.addNumpyToVtk(polyData, dist, 'dist_to_plane')
 
-    groundPoints = thresholdPoints(polyData, 'dist_to_plane', [-groundThickness / 2.0, groundThickness / 2.0])
-    scenePoints = thresholdPoints(polyData, 'dist_to_plane', [sceneHeightFromGround, 100])
+    groundPoints = thresholdPoints(
+        polyData, 'dist_to_plane', [-groundThickness / 2.0, groundThickness / 2.0])
+    scenePoints = thresholdPoints(polyData, 'dist_to_plane', [
+                                  sceneHeightFromGround, 100])
 
     return origin, normal, groundPoints, scenePoints
 
@@ -275,9 +281,11 @@ def segmentGroundPlane():
 
     zvalues = vtkNumpy.getNumpyFromVtk(polyData, 'Points')[:, 2]
     groundHeight = np.percentile(zvalues, 5)
-    searchRegion = thresholdPoints(polyData, 'z', [groundHeight - 0.3, groundHeight + 0.3])
+    searchRegion = thresholdPoints(
+        polyData, 'z', [groundHeight - 0.3, groundHeight + 0.3])
 
-    updatePolyData(searchRegion, 'ground search region', parent=getDebugFolder(), colorByName='z', visible=False)
+    updatePolyData(searchRegion, 'ground search region',
+                   parent=getDebugFolder(), colorByName='z', visible=False)
 
     _, origin, normal = applyPlaneFit(searchRegion, distanceThreshold=0.02, expectedNormal=[0, 0, 1],
                                       perpendicularAxis=[0, 0, 1], returnOrigin=True)
@@ -305,10 +313,12 @@ def applyLocalPlaneFit(polyData, searchPoint, searchRadius, searchRadiusEnd=None
         polyData = applyVoxelGrid(polyData, leafSize=voxelGridSize)
 
     if removeGroundFirst:
-        _, polyData = removeGround(polyData, groundThickness=0.02, sceneHeightFromGround=0.04)
+        _, polyData = removeGround(
+            polyData, groundThickness=0.02, sceneHeightFromGround=0.04)
 
     cropped = cropToSphere(polyData, searchPoint, searchRadius)
-    updatePolyData(cropped, 'crop to sphere', visible=False, colorByName='distance_to_point')
+    updatePolyData(cropped, 'crop to sphere', visible=False,
+                   colorByName='distance_to_point')
 
     polyData, normal = applyPlaneFit(polyData, distanceToPlaneThreshold, searchOrigin=searchPoint,
                                      searchRadius=searchRadius)
@@ -318,13 +328,16 @@ def applyLocalPlaneFit(polyData, searchPoint, searchRadius, searchRadiusEnd=None
                                          angleEpsilon=math.radians(30), searchOrigin=searchPoint,
                                          searchRadius=searchRadiusEnd)
 
-    fitPoints = thresholdPoints(polyData, 'dist_to_plane', [-distanceToPlaneThreshold, distanceToPlaneThreshold])
+    fitPoints = thresholdPoints(
+        polyData, 'dist_to_plane', [-distanceToPlaneThreshold, distanceToPlaneThreshold])
 
     updatePolyData(fitPoints, 'fitPoints', visible=False)
 
     fitPoints = labelDistanceToPoint(fitPoints, searchPoint)
-    clusters = extractClusters(fitPoints, clusterTolerance=0.05, minClusterSize=3)
-    clusters.sort(key=lambda x: vtkNumpy.getNumpyFromVtk(x, 'distance_to_point').min())
+    clusters = extractClusters(
+        fitPoints, clusterTolerance=0.05, minClusterSize=3)
+    clusters.sort(key=lambda x: vtkNumpy.getNumpyFromVtk(
+        x, 'distance_to_point').min())
     fitPoints = clusters[0]
 
     return fitPoints, normal
@@ -339,17 +352,22 @@ def applyLocalPlaneFit(polyData, searchPoint, searchRadius, searchRadiusEnd=None
 
     normals = vtkNumpy.getNumpyFromVtk(scenePoints, 'normals')
     normalsDotPlaneNormal = np.abs(np.dot(normals, normal))
-    vtkNumpy.addNumpyToVtk(scenePoints, normalsDotPlaneNormal, 'normals_dot_plane_normal')
+    vtkNumpy.addNumpyToVtk(
+        scenePoints, normalsDotPlaneNormal, 'normals_dot_plane_normal')
 
-    showPolyData(scenePoints, 'scene_with_normals', parent=getDebugFolder(), colorByName='normals_dot_plane_normal')
+    showPolyData(scenePoints, 'scene_with_normals',
+                 parent=getDebugFolder(), colorByName='normals_dot_plane_normal')
 
-    surfaces = thresholdPoints(scenePoints, 'normals_dot_plane_normal', [0.95, 1.0])
+    surfaces = thresholdPoints(
+        scenePoints, 'normals_dot_plane_normal', [0.95, 1.0])
 
-    clusters = extractClusters(surfaces, clusterTolerance=0.1, minClusterSize=5)
+    clusters = extractClusters(
+        surfaces, clusterTolerance=0.1, minClusterSize=5)
     clusters = clusters[:10]
 
     for i, cluster in enumerate(clusters):
-        showPolyData(cluster, 'plane cluster %i' % i, parent=getDebugFolder(), visible=False)
+        showPolyData(cluster, 'plane cluster %i' %
+                     i, parent=getDebugFolder(), visible=False)
 
     return fitPoints
 
@@ -364,10 +382,13 @@ def orientToMajorPlane(polyData, pickedPoint):
 
     planePoints, origin, normal = applyPlaneFit(polyData, distanceToPlaneThreshold, searchOrigin=pickedPoint,
                                                 searchRadius=searchRadius, returnOrigin=True)
-    vis.updatePolyData(planePoints, 'local plane fit', color=[0, 1, 0], parent=getDebugFolder(), visible=False)
+    vis.updatePolyData(planePoints, 'local plane fit', color=[
+                       0, 1, 0], parent=getDebugFolder(), visible=False)
 
-    planeFrame = transformUtils.getTransformFromOriginAndNormal(pickedPoint, normal)
-    vis.updateFrame(planeFrame, 'plane frame', scale=0.15, parent=getDebugFolder(), visible=False)
+    planeFrame = transformUtils.getTransformFromOriginAndNormal(
+        pickedPoint, normal)
+    vis.updateFrame(planeFrame, 'plane frame', scale=0.15,
+                    parent=getDebugFolder(), visible=False)
 
     polyData = transformPolyData(polyData, planeFrame.GetLinearInverse())
 
@@ -375,7 +396,8 @@ def orientToMajorPlane(polyData, pickedPoint):
     zvalues = vtkNumpy.getNumpyFromVtk(polyData, 'Points')[:, 2]
     midCloudHeight = np.mean(zvalues)
     if (midCloudHeight < 0):
-        flipTransform = transformUtils.frameFromPositionAndRPY([0, 0, 0], [0, 180, 0])
+        flipTransform = transformUtils.frameFromPositionAndRPY([0, 0, 0], [
+                                                               0, 180, 0])
         polyData = transformPolyData(polyData, flipTransform)
 
     return polyData, planeFrame
@@ -435,7 +457,8 @@ def showMajorPlanes(polyData=None):
     polyDataList = getMajorPlanes(polyData)
 
     for i, polyData in enumerate(polyDataList):
-        obj = showPolyData(polyData, 'plane %d' % i, color=getRandomColor(), visible=True, parent='major planes')
+        obj = showPolyData(polyData, 'plane %d' % i, color=getRandomColor(
+        ), visible=True, parent='major planes')
         obj.setProperty('Point Size', 3)
 
 
@@ -448,7 +471,8 @@ def cropToBox(polyData, transform, dimensions):
 
     for axis, length in zip(axes, dimensions):
         cropAxis = np.array(axis) * (length / 2.0)
-        polyData = cropToLineSegment(polyData, origin - cropAxis, origin + cropAxis)
+        polyData = cropToLineSegment(
+            polyData, origin - cropAxis, origin + cropAxis)
 
     return polyData
 
@@ -462,7 +486,8 @@ def cropToBounds(polyData, transform, bounds):
 
     for axis, bound in zip(axes, bounds):
         axis = np.array(axis) / np.linalg.norm(axis)
-        polyData = cropToLineSegment(polyData, origin + axis * bound[0], origin + axis * bound[1])
+        polyData = cropToLineSegment(
+            polyData, origin + axis * bound[0], origin + axis * bound[1])
 
     return polyData
 
@@ -474,7 +499,8 @@ def cropToSphere(polyData, origin, radius):
 
 def applyPlaneFit(polyData, distanceThreshold=0.02, expectedNormal=None, perpendicularAxis=None, angleEpsilon=0.2,
                   returnOrigin=False, searchOrigin=None, searchRadius=None):
-    expectedNormal = expectedNormal if expectedNormal is not None else [-1, 0, 0]
+    expectedNormal = expectedNormal if expectedNormal is not None else [
+        -1, 0, 0]
 
     fitInput = polyData
     if searchOrigin is not None:
@@ -542,9 +568,12 @@ def addCoordArraysToPolyData(polyData):
     viewX = viewFrame.TransformVector([1.0, 0.0, 0.0])
     viewY = viewFrame.TransformVector([0.0, 1.0, 0.0])
     viewZ = viewFrame.TransformVector([0.0, 0.0, 1.0])
-    polyData = labelPointDistanceAlongAxis(polyData, viewX, origin=viewOrigin, resultArrayName='distance_along_view_x')
-    polyData = labelPointDistanceAlongAxis(polyData, viewY, origin=viewOrigin, resultArrayName='distance_along_view_y')
-    polyData = labelPointDistanceAlongAxis(polyData, viewZ, origin=viewOrigin, resultArrayName='distance_along_view_z')
+    polyData = labelPointDistanceAlongAxis(
+        polyData, viewX, origin=viewOrigin, resultArrayName='distance_along_view_x')
+    polyData = labelPointDistanceAlongAxis(
+        polyData, viewY, origin=viewOrigin, resultArrayName='distance_along_view_y')
+    polyData = labelPointDistanceAlongAxis(
+        polyData, viewZ, origin=viewOrigin, resultArrayName='distance_along_view_z')
 
     return polyData
 
@@ -602,7 +631,8 @@ def getDisparityPointCloud(decimation=4, removeOutliers=True, removeSize=0, rang
     if removeOutliers:
         # attempt to scale outlier filtering, best tuned for decimation of 2 or 4
         scaling = (10 * 16) / (decimation * decimation)
-        p = labelOutliers(p, searchRadius=0.06, neighborsInSearchRadius=scaling)
+        p = labelOutliers(p, searchRadius=0.06,
+                          neighborsInSearchRadius=scaling)
         p = thresholdPoints(p, 'is_outlier', [0.0, 0.0])
 
     return p
@@ -634,27 +664,29 @@ def segmentGroundPlanes():
     prevHeadAxis = None
     for obj in objs:
         name = obj.getProperty('Name')
-        print '----- %s---------' % name
-        print  'head axis:', obj.headAxis
+        print('----- %s---------' % name)
+        print('head axis:', obj.headAxis)
         origin, normal, groundPoints, _ = segmentGround(obj.polyData)
-        print 'ground normal:', normal
+        print('ground normal:', normal)
         showPolyData(groundPoints, name + ' ground points', visible=False)
         a = np.array([0, 0, 1])
         b = np.array(normal)
-        diff = math.degrees(math.acos(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))))
+        diff = math.degrees(
+            math.acos(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))))
         if diff > 90:
-            print 180 - diff
+            print(180 - diff)
         else:
-            print diff
+            print(diff)
 
         if prevHeadAxis is not None:
             a = prevHeadAxis
             b = np.array(obj.headAxis)
-            diff = math.degrees(math.acos(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))))
+            diff = math.degrees(
+                math.acos(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))))
             if diff > 90:
-                print 180 - diff
+                print(180 - diff)
             else:
-                print diff
+                print(diff)
         prevHeadAxis = np.array(obj.headAxis)
 
         d.addLine([0, 0, 0], normal)
@@ -671,7 +703,8 @@ def extractCircle(polyData, distanceThreshold=0.04, radiusLimit=None):
         circleFit.SetRadiusConstraintEnabled(True)
     circleFit.Update()
 
-    polyData = thresholdPoints(circleFit.GetOutput(), 'ransac_labels', [1.0, 1.0])
+    polyData = thresholdPoints(
+        circleFit.GetOutput(), 'ransac_labels', [1.0, 1.0])
     return polyData, circleFit
 
 
@@ -700,14 +733,17 @@ def removeGroundSimple(polyData, groundThickness=0.02, sceneHeightFromGround=0.0
     dist = np.dot(points - origin, normal)
     vtkNumpy.addNumpyToVtk(polyData, dist, 'dist_to_plane')
 
-    groundPoints = thresholdPoints(polyData, 'dist_to_plane', [-groundThickness / 2.0, groundThickness / 2.0])
-    scenePoints = thresholdPoints(polyData, 'dist_to_plane', [sceneHeightFromGround, 100])
+    groundPoints = thresholdPoints(
+        polyData, 'dist_to_plane', [-groundThickness / 2.0, groundThickness / 2.0])
+    scenePoints = thresholdPoints(polyData, 'dist_to_plane', [
+                                  sceneHeightFromGround, 100])
 
     return groundPoints, scenePoints
 
 
 def removeGround(polyData, groundThickness=0.02, sceneHeightFromGround=0.05):
-    origin, normal, groundPoints, scenePoints = segmentGround(polyData, groundThickness, sceneHeightFromGround)
+    origin, normal, groundPoints, scenePoints = segmentGround(
+        polyData, groundThickness, sceneHeightFromGround)
     return groundPoints, scenePoints
 
 
@@ -736,7 +772,8 @@ def generateFeetForValve():
     stanceFrame, lfootFrame, rfootFrame = getFootFramesFromReferenceFrame(valveFrame, stanceWidth, stanceRotation,
                                                                           stanceOffset)
 
-    showFrame(boardFrame, 'board ground frame', parent=aff, scale=0.15, visible=False)
+    showFrame(boardFrame, 'board ground frame',
+              parent=aff, scale=0.15, visible=False)
     showFrame(lfootFrame, 'lfoot frame', parent=aff, scale=0.15)
     showFrame(rfootFrame, 'rfoot frame', parent=aff, scale=0.15)
 
@@ -755,7 +792,8 @@ def generateFeetForDebris():
 
     origin = np.array(params['origin'])
 
-    origin = origin + params['zaxis'] * params['zwidth'] / 2.0 - params['xaxis'] * params['xwidth'] / 2.0
+    origin = origin + params['zaxis'] * params['zwidth'] / \
+        2.0 - params['xaxis'] * params['xwidth'] / 2.0
     origin[2] = 0.0
 
     yaxis = params['zaxis']
@@ -773,7 +811,8 @@ def generateFeetForDebris():
     stanceFrame, lfootFrame, rfootFrame = getFootFramesFromReferenceFrame(boardFrame, stanceWidth, stanceRotation,
                                                                           stanceOffset)
 
-    showFrame(boardFrame, 'board ground frame', parent=aff, scale=0.15, visible=False)
+    showFrame(boardFrame, 'board ground frame',
+              parent=aff, scale=0.15, visible=False)
     lfoot = showFrame(lfootFrame, 'lfoot frame', parent=aff, scale=0.15)
     rfoot = showFrame(rfootFrame, 'rfoot frame', parent=aff, scale=0.15)
 
@@ -811,7 +850,8 @@ def generateFeetForWye():
     stanceFrame, lfootFrame, rfootFrame = getFootFramesFromReferenceFrame(affGroundFrame, stanceWidth, stanceRotation,
                                                                           stanceOffset)
 
-    showFrame(affGroundFrame, 'affordance ground frame', parent=aff, scale=0.15, visible=False)
+    showFrame(affGroundFrame, 'affordance ground frame',
+              parent=aff, scale=0.15, visible=False)
     lfoot = showFrame(lfootFrame, 'lfoot frame', parent=aff, scale=0.15)
     rfoot = showFrame(rfootFrame, 'rfoot frame', parent=aff, scale=0.15)
 
@@ -892,7 +932,8 @@ def createLine(blockDimensions, p1, p2):
     d.addLine(cameraPt, worldPt2)
     d.addLine(worldPt1, worldPt2)
     d.addLine(cameraPt, cameraPt + middleRay)
-    updatePolyData(d.getPolyData(), 'line annotation', parent=getDebugFolder(), visible=False)
+    updatePolyData(d.getPolyData(), 'line annotation',
+                   parent=getDebugFolder(), visible=False)
 
     inputObj = om.findObjectByName('pointcloud snapshot')
     if inputObj:
@@ -915,20 +956,24 @@ def createLine(blockDimensions, p1, p2):
 
     updatePolyData(polyData, 'slice dist', parent=getDebugFolder(), colorByName='dist_to_plane',
                    colorByRange=[-0.5, 0.5], visible=False)
-    updatePolyData(cropped, 'slice', parent=getDebugFolder(), colorByName='dist_to_plane', visible=False)
+    updatePolyData(cropped, 'slice', parent=getDebugFolder(),
+                   colorByName='dist_to_plane', visible=False)
 
     cropped, _ = cropToPlane(cropped, origin, leftNormal, [-1e6, 0])
     cropped, _ = cropToPlane(cropped, origin, rightNormal, [-1e6, 0])
 
-    updatePolyData(cropped, 'slice segment', parent=getDebugFolder(), colorByName='dist_to_plane', visible=False)
+    updatePolyData(cropped, 'slice segment', parent=getDebugFolder(),
+                   colorByName='dist_to_plane', visible=False)
 
     planePoints, planeNormal = applyPlaneFit(cropped, distanceThreshold=0.005, perpendicularAxis=middleRay,
                                              angleEpsilon=math.radians(60))
-    planePoints = thresholdPoints(planePoints, 'dist_to_plane', [-0.005, 0.005])
-    updatePolyData(planePoints, 'board segmentation', parent=getDebugFolder(), color=getRandomColor(), visible=False)
+    planePoints = thresholdPoints(
+        planePoints, 'dist_to_plane', [-0.005, 0.005])
+    updatePolyData(planePoints, 'board segmentation',
+                   parent=getDebugFolder(), color=getRandomColor(), visible=False)
 
     '''
-    names = ['board A', 'board B', 'board C', 'board D', 'board E', 'board f(", 'board G', 'board H', 'board I")]
+    names = ['board A', 'board B', 'board C', 'board D', 'board E', 'board f", 'board G', 'board H', 'board I"]
     for name in names:
         if not om.findObjectByName(name):
             break
@@ -959,7 +1004,8 @@ def updateBlockFit(affordanceObj, polyData=None):
     origin = affordanceObj.params['origin']
     normal = affordanceObj.params['yaxis']
     edgePerpAxis = affordanceObj.params['xaxis']
-    blockDimensions = [affordanceObj.params['xwidth'], affordanceObj.params['ywidth']]
+    blockDimensions = [affordanceObj.params['xwidth'],
+                       affordanceObj.params['ywidth']]
 
     if polyData is None:
         inputObj = om.findObjectByName('pointcloud snapshot')
@@ -967,17 +1013,22 @@ def updateBlockFit(affordanceObj, polyData=None):
 
     cropThreshold = 0.1
     cropped = polyData
-    cropped, _ = cropToPlane(cropped, origin, normal, [-cropThreshold, cropThreshold])
-    cropped, _ = cropToPlane(cropped, origin, edgePerpAxis, [-cropThreshold, cropThreshold])
+    cropped, _ = cropToPlane(cropped, origin, normal,
+                             [-cropThreshold, cropThreshold])
+    cropped, _ = cropToPlane(
+        cropped, origin, edgePerpAxis, [-cropThreshold, cropThreshold])
 
-    updatePolyData(cropped, 'refit search region', parent=getDebugFolder(), visible=False)
+    updatePolyData(cropped, 'refit search region',
+                   parent=getDebugFolder(), visible=False)
 
     cropped = extractLargestCluster(cropped)
 
     planePoints, planeNormal = applyPlaneFit(cropped, distanceThreshold=0.005, perpendicularAxis=normal,
                                              angleEpsilon=math.radians(10))
-    planePoints = thresholdPoints(planePoints, 'dist_to_plane', [-0.005, 0.005])
-    updatePolyData(planePoints, 'refit board segmentation', parent=getDebugFolder(), visible=False)
+    planePoints = thresholdPoints(
+        planePoints, 'dist_to_plane', [-0.005, 0.005])
+    updatePolyData(planePoints, 'refit board segmentation',
+                   parent=getDebugFolder(), visible=False)
 
     refitObj = segmentBlockByTopPlane(planePoints, blockDimensions, expectedNormal=normal, expectedXAxis=edgePerpAxis,
                                       edgeSign=-1, name=name)
@@ -1038,21 +1089,25 @@ def segmentValve(expectedValveRadius, point1, point2):
     inputObj = om.findObjectByName('pointcloud snapshot')
     polyData = inputObj.polyData
 
-    viewPlaneNormal = np.array(getSegmentationView().camera().GetViewPlaneNormal())
+    viewPlaneNormal = np.array(
+        getSegmentationView().camera().GetViewPlaneNormal())
 
     polyData, _, wallNormal = applyPlaneFit(polyData, expectedNormal=viewPlaneNormal, searchOrigin=point1,
                                             searchRadius=0.2, angleEpsilon=0.7, returnOrigin=True)
 
     wallPoints = thresholdPoints(polyData, 'dist_to_plane', [-0.01, 0.01])
-    updatePolyData(wallPoints, 'wall points', parent=getDebugFolder(), visible=False)
+    updatePolyData(wallPoints, 'wall points',
+                   parent=getDebugFolder(), visible=False)
 
     polyData, _, _ = applyPlaneFit(polyData, expectedNormal=wallNormal, searchOrigin=point2,
                                    searchRadius=expectedValveRadius, angleEpsilon=0.2, returnOrigin=True)
     valveCluster = thresholdPoints(polyData, 'dist_to_plane', [-0.01, 0.01])
     valveCluster = cropToSphere(valveCluster, point2, expectedValveRadius * 2)
     valveCluster = extractLargestCluster(valveCluster, minClusterSize=1)
-    updatePolyData(valveCluster, 'valve cluster', parent=getDebugFolder(), visible=False)
-    origin = np.average(vtkNumpy.getNumpyFromVtk(valveCluster, 'Points'), axis=0)
+    updatePolyData(valveCluster, 'valve cluster',
+                   parent=getDebugFolder(), visible=False)
+    origin = np.average(vtkNumpy.getNumpyFromVtk(
+        valveCluster, 'Points'), axis=0)
 
     zaxis = wallNormal
     xaxis = [0, 0, 1]
@@ -1068,10 +1123,12 @@ def segmentValve(expectedValveRadius, point1, point2):
     radius = expectedValveRadius
 
     d = DebugData()
-    d.addLine(np.array([0, 0, -zwidth / 2.0]), np.array([0, 0, zwidth / 2.0]), radius=radius)
+    d.addLine(np.array([0, 0, -zwidth / 2.0]),
+              np.array([0, 0, zwidth / 2.0]), radius=radius)
 
     name = 'valve affordance'
-    obj = showPolyData(d.getPolyData(), name, cls=FrameAffordanceItem, parent='affordances', color=[0, 1, 0])
+    obj = showPolyData(d.getPolyData(), name, cls=FrameAffordanceItem,
+                       parent='affordances', color=[0, 1, 0])
     obj.actor.SetUserTransform(t)
     obj.addToView(app.getDRCView())
     refitWallCallbacks.append(functools.partial(refitValveAffordance, obj))
@@ -1083,7 +1140,8 @@ def segmentValve(expectedValveRadius, point1, point2):
     obj.setAffordanceParams(params)
     obj.updateParamsFromActorTransform()
 
-    frameObj = showFrame(obj.actor.GetUserTransform(), name + ' frame', parent=obj, scale=radius, visible=False)
+    frameObj = showFrame(obj.actor.GetUserTransform(
+    ), name + ' frame', parent=obj, scale=radius, visible=False)
     frameObj.addToView(app.getDRCView())
 
 
@@ -1094,9 +1152,11 @@ def segmentValveByBoundingBox(polyData, searchPoint):
     polyData = applyVoxelGrid(polyData, leafSize=0.015)
 
     # extract tube search region
-    polyData = labelDistanceToLine(polyData, searchPoint, np.array(searchPoint) + np.array([0, 0, 1]))
+    polyData = labelDistanceToLine(
+        polyData, searchPoint, np.array(searchPoint) + np.array([0, 0, 1]))
     searchRegion = thresholdPoints(polyData, 'distance_to_line', [0.0, 0.2])
-    updatePolyData(searchRegion, 'valve tube search region', parent=getDebugFolder(), color=[1, 0, 0], visible=False)
+    updatePolyData(searchRegion, 'valve tube search region',
+                   parent=getDebugFolder(), color=[1, 0, 0], visible=False)
 
     # guess valve plane
     _, origin, normal = applyPlaneFit(searchRegion, distanceThreshold=0.01, perpendicularAxis=viewDirection,
@@ -1104,17 +1164,21 @@ def segmentValveByBoundingBox(polyData, searchPoint):
 
     # extract plane search region
     polyData = labelPointDistanceAlongAxis(polyData, normal, origin)
-    searchRegion = thresholdPoints(polyData, 'distance_along_axis', [-0.05, 0.05])
+    searchRegion = thresholdPoints(
+        polyData, 'distance_along_axis', [-0.05, 0.05])
     updatePolyData(searchRegion, 'valve plane search region', parent=getDebugFolder(),
                    colorByName='distance_along_axis', visible=False)
 
     valvePoints = extractLargestCluster(searchRegion, minClusterSize=1)
-    updatePolyData(valvePoints, 'valve cluster', parent=getDebugFolder(), color=[0, 1, 0], visible=False)
+    updatePolyData(valvePoints, 'valve cluster',
+                   parent=getDebugFolder(), color=[0, 1, 0], visible=False)
 
-    valvePoints, _ = applyPlaneFit(valvePoints, expectedNormal=normal, perpendicularAxis=normal, distanceThreshold=0.01)
+    valvePoints, _ = applyPlaneFit(
+        valvePoints, expectedNormal=normal, perpendicularAxis=normal, distanceThreshold=0.01)
     valveFit = thresholdPoints(valvePoints, 'dist_to_plane', [-0.01, 0.01])
 
-    updatePolyData(valveFit, 'valve cluster', parent=getDebugFolder(), color=[0, 1, 0], visible=False)
+    updatePolyData(valveFit, 'valve cluster',
+                   parent=getDebugFolder(), color=[0, 1, 0], visible=False)
 
     points = vtkNumpy.getNumpyFromVtk(valveFit, 'Points')
     zvalues = points[:, 2].copy()
@@ -1155,7 +1219,8 @@ def segmentDoorPlane(polyData, doorPoint, stanceFrame):
     doorPoint = np.array(doorPoint)
     doorBand = 1.5
 
-    polyData = cropToLineSegment(polyData, doorPoint + [0.0, 0.0, doorBand / 2], doorPoint - [0.0, 0.0, doorBand / 2])
+    polyData = cropToLineSegment(
+        polyData, doorPoint + [0.0, 0.0, doorBand / 2], doorPoint - [0.0, 0.0, doorBand / 2])
     fitPoints, normal = applyLocalPlaneFit(polyData, doorPoint, searchRadius=0.2, searchRadiusEnd=1.0,
                                            removeGroundFirst=False)
 
@@ -1209,10 +1274,12 @@ def segmentValveByRim(polyData, rimPoint1, rimPoint2):
     polyData = cropToSphere(polyData, origin, radius=0.4)
     polyData = applyVoxelGrid(polyData, leafSize=0.015)
 
-    updatePolyData(polyData, 'valve search region', parent=getDebugFolder(), color=[1, 0, 0], visible=False)
+    updatePolyData(polyData, 'valve search region',
+                   parent=getDebugFolder(), color=[1, 0, 0], visible=False)
 
     valveFit = extractLargestCluster(polyData, minClusterSize=1)
-    updatePolyData(valveFit, 'valve cluster', parent=getDebugFolder(), color=[0, 1, 0], visible=False)
+    updatePolyData(valveFit, 'valve cluster',
+                   parent=getDebugFolder(), color=[0, 1, 0], visible=False)
 
     points = vtkNumpy.getNumpyFromVtk(valveFit, 'Points')
     zvalues = points[:, 2].copy()
@@ -1224,7 +1291,8 @@ def segmentValveByRim(polyData, rimPoint1, rimPoint2):
 
     fields = makePolyDataFields(valveFit)
     origin = np.array(fields.frame.GetPosition())
-    vis.updatePolyData(transformPolyData(fields.box, fields.frame), 'valve cluster bounding box', visible=False)
+    vis.updatePolyData(transformPolyData(fields.box, fields.frame),
+                       'valve cluster bounding box', visible=False)
 
     # origin = computeCentroid(valveFit)
 
@@ -1275,7 +1343,8 @@ def segmentValveByWallPlane(expectedValveRadius, point1, point2):
     _, polyData = removeGround(polyData)
 
     viewDirection = SegmentationContext.getGlobalInstance().getViewDirection()
-    polyData, origin, normal = applyPlaneFit(polyData, expectedNormal=-viewDirection, returnOrigin=True)
+    polyData, origin, normal = applyPlaneFit(
+        polyData, expectedNormal=-viewDirection, returnOrigin=True)
 
     perpLine = np.cross(point2 - point1, normal)
     # perpLine /= np.linalg.norm(perpLine)
@@ -1285,38 +1354,46 @@ def segmentValveByWallPlane(expectedValveRadius, point1, point2):
     d = DebugData()
     d.addLine(point1, point2)
     d.addLine(point3, point4)
-    updatePolyData(d.getPolyData(), 'crop lines', parent=getDebugFolder(), visible=False)
+    updatePolyData(d.getPolyData(), 'crop lines',
+                   parent=getDebugFolder(), visible=False)
 
     wallPoints = thresholdPoints(polyData, 'dist_to_plane', [-0.01, 0.01])
-    updatePolyData(wallPoints, 'valve wall', parent=getDebugFolder(), visible=False)
+    updatePolyData(wallPoints, 'valve wall',
+                   parent=getDebugFolder(), visible=False)
 
     searchRegion = thresholdPoints(polyData, 'dist_to_plane', [0.05, 0.5])
     searchRegion = cropToLineSegment(searchRegion, point1, point2)
     searchRegion = cropToLineSegment(searchRegion, point3, point4)
 
-    updatePolyData(searchRegion, 'valve search region', parent=getDebugFolder(), color=[1, 0, 0], visible=False)
+    updatePolyData(searchRegion, 'valve search region',
+                   parent=getDebugFolder(), color=[1, 0, 0], visible=False)
 
     searchRegionSpokes = shallowCopy(searchRegion)
 
     searchRegion, origin, _ = applyPlaneFit(searchRegion, expectedNormal=normal, perpendicularAxis=normal,
                                             returnOrigin=True)
-    searchRegion = thresholdPoints(searchRegion, 'dist_to_plane', [-0.015, 0.015])
+    searchRegion = thresholdPoints(
+        searchRegion, 'dist_to_plane', [-0.015, 0.015])
 
-    updatePolyData(searchRegion, 'valve search region 2', parent=getDebugFolder(), color=[0, 1, 0], visible=False)
+    updatePolyData(searchRegion, 'valve search region 2',
+                   parent=getDebugFolder(), color=[0, 1, 0], visible=False)
 
     largestCluster = extractLargestCluster(searchRegion, minClusterSize=1)
 
-    updatePolyData(largestCluster, 'valve cluster', parent=getDebugFolder(), color=[0, 1, 0], visible=False)
+    updatePolyData(largestCluster, 'valve cluster',
+                   parent=getDebugFolder(), color=[0, 1, 0], visible=False)
 
-    radiusLimit = [expectedValveRadius - 0.01, expectedValveRadius + 0.01] if expectedValveRadius else None
+    radiusLimit = [expectedValveRadius - 0.01,
+                   expectedValveRadius + 0.01] if expectedValveRadius else None
     # radiusLimit = None
 
-    polyData, circleFit = extractCircle(largestCluster, distanceThreshold=0.01, radiusLimit=radiusLimit)
-    updatePolyData(polyData, 'circle fit', parent=getDebugFolder(), visible=False)
+    polyData, circleFit = extractCircle(
+        largestCluster, distanceThreshold=0.01, radiusLimit=radiusLimit)
+    updatePolyData(polyData, 'circle fit',
+                   parent=getDebugFolder(), visible=False)
 
     # polyData, circleFit = extractCircle(polyData, distanceThreshold=0.01)
     # showPolyData(polyData, 'circle fit', colorByName='z')
-
 
     radius = circleFit.GetCircleRadius()
     origin = np.array(circleFit.GetCircleOrigin())
@@ -1333,7 +1410,8 @@ def segmentValveByWallPlane(expectedValveRadius, point1, point2):
     d = DebugData()
     d.addLine(origin - normal * radius, origin + normal * radius)
     d.addCircle(origin, circleNormal, radius)
-    updatePolyData(d.getPolyData(), 'valve axes', parent=getDebugFolder(), visible=False)
+    updatePolyData(d.getPolyData(), 'valve axes',
+                   parent=getDebugFolder(), visible=False)
 
     zaxis = -circleNormal
     xaxis = [0, 0, 1]
@@ -1342,27 +1420,34 @@ def segmentValveByWallPlane(expectedValveRadius, point1, point2):
     xaxis /= np.linalg.norm(xaxis)
     yaxis /= np.linalg.norm(yaxis)
     # t = getTransformFromAxes(xaxis, yaxis, zaxis) # this was added to be consistent with segmentValveByRim
-    t = getTransformFromAxes(zaxis, -yaxis, xaxis)  # this was added to be consistent with segmentValveByRim
+    # this was added to be consistent with segmentValveByRim
+    t = getTransformFromAxes(zaxis, -yaxis, xaxis)
     t.PostMultiply()
     t.Translate(origin)
 
     # Spoke angle fitting:
     if (1 == 0):  # disabled jan 2015
         # extract the relative positon of the points to the valve axis:
-        searchRegionSpokes = labelDistanceToLine(searchRegionSpokes, origin, [origin + circleNormal])
-        searchRegionSpokes = thresholdPoints(searchRegionSpokes, 'distance_to_line', [0.05, radius - 0.04])
-        updatePolyData(searchRegionSpokes, 'valve spoke search', parent=getDebugFolder(), visible=False)
-        searchRegionSpokesLocal = transformPolyData(searchRegionSpokes, t.GetLinearInverse())
+        searchRegionSpokes = labelDistanceToLine(
+            searchRegionSpokes, origin, [origin + circleNormal])
+        searchRegionSpokes = thresholdPoints(
+            searchRegionSpokes, 'distance_to_line', [0.05, radius - 0.04])
+        updatePolyData(searchRegionSpokes, 'valve spoke search',
+                       parent=getDebugFolder(), visible=False)
+        searchRegionSpokesLocal = transformPolyData(
+            searchRegionSpokes, t.GetLinearInverse())
         points = vtkNumpy.getNumpyFromVtk(searchRegionSpokesLocal, 'Points')
 
         spoke_angle = findValveSpokeAngle(points)
     else:
         spoke_angle = 0
 
-    spokeAngleTransform = transformUtils.frameFromPositionAndRPY([0, 0, 0], [0, 0, spoke_angle])
+    spokeAngleTransform = transformUtils.frameFromPositionAndRPY(
+        [0, 0, 0], [0, 0, spoke_angle])
     spokeTransform = transformUtils.copyFrame(t)
     spokeAngleTransform.Concatenate(spokeTransform)
-    spokeObj = showFrame(spokeAngleTransform, 'spoke frame', parent=getDebugFolder(), visible=False, scale=radius)
+    spokeObj = showFrame(spokeAngleTransform, 'spoke frame',
+                         parent=getDebugFolder(), visible=False, scale=radius)
     spokeObj.addToView(app.getDRCView())
     t = spokeAngleTransform
 
@@ -1395,11 +1480,13 @@ def showTable(table, parent):
     explictly draw a table and its frames
     '''
     pose = transformUtils.poseFromTransform(table.frame)
-    desc = dict(classname='MeshAffordanceItem', Name='table', Color=[0, 1, 0], pose=pose)
+    desc = dict(classname='MeshAffordanceItem',
+                Name='table', Color=[0, 1, 0], pose=pose)
     aff = affordanceManager.newAffordanceFromDescription(desc)
     aff.setPolyData(table.mesh)
 
-    tableBox = vis.showPolyData(table.box, 'table box', parent=aff, color=[0, 1, 0], visible=False)
+    tableBox = vis.showPolyData(table.box, 'table box', parent=aff, color=[
+                                0, 1, 0], visible=False)
     tableBox.actor.SetUserTransform(table.frame)
 
 
@@ -1418,7 +1505,7 @@ def applyKmeansLabel(polyData, arrayName, numberOfClusters, whiten=False):
         v1 /= np.linalg.norm(v1)
         v2 /= np.linalg.norm(v2)
         angle = np.arccos(np.dot(v1, v2))
-        print 'angle between normals:', np.degrees(angle)
+        print('angle between normals:', np.degrees(angle))
 
     code, distance = scipy.cluster.vq.vq(ar, codes)
 
@@ -1434,7 +1521,6 @@ def findValveSpokeAngle(points):
     '''
 
     # np.savetxt("/home/mfallon/Desktop/spoke_points.csv", points, delimiter=",")
-
 
     # convert all points to degrees in range [0,120]
     angle = np.degrees(np.arctan2(points[:, 1], points[:, 0]))
@@ -1462,13 +1548,15 @@ def findWallCenter(polyData, removeGroundMethod=removeGround):
     _, polyData = removeGroundMethod(polyData)
 
     viewDirection = SegmentationContext.getGlobalInstance().getViewDirection()
-    polyData, origin, normal = applyPlaneFit(polyData, expectedNormal=-viewDirection, returnOrigin=True)
+    polyData, origin, normal = applyPlaneFit(
+        polyData, expectedNormal=-viewDirection, returnOrigin=True)
 
     wallPoints = thresholdPoints(polyData, 'dist_to_plane', [-0.01, 0.01])
     wallPoints = applyVoxelGrid(wallPoints, leafSize=0.03)
     wallPoints = extractLargestCluster(wallPoints, minClusterSize=100)
 
-    updatePolyData(wallPoints, 'auto valve wall', parent=getDebugFolder(), visible=False)
+    updatePolyData(wallPoints, 'auto valve wall',
+                   parent=getDebugFolder(), visible=False)
 
     xvalues = vtkNumpy.getNumpyFromVtk(wallPoints, 'Points')[:, 0]
     yvalues = vtkNumpy.getNumpyFromVtk(wallPoints, 'Points')[:, 1]
@@ -1482,7 +1570,8 @@ def findWallCenter(polyData, removeGroundMethod=removeGround):
     # not used, not very reliable
     # zvalues = vtkNumpy.getNumpyFromVtk(wallPoints, 'Points')[:,2]
     # zcenter = np.median(zvalues)
-    zcenter = SegmentationContext.getGlobalInstance().getGroundHeight() + 1.2192  # valves are 4ft from ground
+    zcenter = SegmentationContext.getGlobalInstance().getGroundHeight() + \
+        1.2192  # valves are 4ft from ground
     point1 = np.array([xcenter, ycenter, zcenter])  # center of the valve wall
 
     zaxis = -normal
@@ -1495,7 +1584,8 @@ def findWallCenter(polyData, removeGroundMethod=removeGround):
     t.PostMultiply()
     t.Translate(point1)
 
-    normalObj = showFrame(t, 'valve wall frame', parent=getDebugFolder(), visible=False)  # z direction out of wall
+    normalObj = showFrame(t, 'valve wall frame', parent=getDebugFolder(
+    ), visible=False)  # z direction out of wall
     normalObj.addToView(app.getDRCView())
 
     return t
@@ -1513,17 +1603,20 @@ def segmentValveWallAuto(expectedValveRadius=.195, mode='both', removeGroundMeth
     t = findWallCenter(polyData, removeGroundMethod)
 
     valve_point1 = [0, 0.6, 0]
-    valveTransform1 = transformUtils.frameFromPositionAndRPY(valve_point1, [0, 0, 0])
+    valveTransform1 = transformUtils.frameFromPositionAndRPY(valve_point1, [
+                                                             0, 0, 0])
     valveTransform1.Concatenate(t)
     point1 = np.array(valveTransform1.GetPosition())  # left of wall
 
     valve_point2 = [0, -0.6, 0]
-    valveTransform2 = transformUtils.frameFromPositionAndRPY(valve_point2, [0, 0, 0])
+    valveTransform2 = transformUtils.frameFromPositionAndRPY(valve_point2, [
+                                                             0, 0, 0])
     valveTransform2.Concatenate(t)
     point2 = np.array(valveTransform2.GetPosition())  # left of wall
 
     valve_point3 = [0, 1.0, 0]  # lever can over hang
-    valveTransform3 = transformUtils.frameFromPositionAndRPY(valve_point3, [0, 0, 0])
+    valveTransform3 = transformUtils.frameFromPositionAndRPY(valve_point3, [
+                                                             0, 0, 0])
     valveTransform3.Concatenate(t)
     point3 = valveTransform3.GetPosition()  # right of wall
 
@@ -1531,7 +1624,8 @@ def segmentValveWallAuto(expectedValveRadius=.195, mode='both', removeGroundMeth
     d.addSphere(point2, radius=0.01)
     d.addSphere(point1, radius=0.03)
     d.addSphere(point3, radius=0.01)
-    updatePolyData(d.getPolyData(), 'auto wall points', parent=getDebugFolder(), visible=False)
+    updatePolyData(d.getPolyData(), 'auto wall points',
+                   parent=getDebugFolder(), visible=False)
 
     if (mode == 'valve'):
         segmentValveByWallPlane(expectedValveRadius, point1, point2)
@@ -1557,7 +1651,8 @@ def segmentLeverByWallPlane(point1, point2):
     polyData = inputObj.polyData
 
     viewDirection = SegmentationContext.getGlobalInstance().getViewDirection()
-    polyData, origin, normal = applyPlaneFit(polyData, expectedNormal=-viewDirection, returnOrigin=True)
+    polyData, origin, normal = applyPlaneFit(
+        polyData, expectedNormal=-viewDirection, returnOrigin=True)
 
     # 2. Crop the cloud down to the lever only using the wall plane
     perpLine = np.cross(point2 - point1, -normal)
@@ -1568,24 +1663,30 @@ def segmentLeverByWallPlane(point1, point2):
     d = DebugData()
     d.addLine(point1, point2)
     d.addLine(point3, point4)
-    updatePolyData(d.getPolyData(), 'lever crop lines', parent=getDebugFolder(), visible=False)
+    updatePolyData(d.getPolyData(), 'lever crop lines',
+                   parent=getDebugFolder(), visible=False)
 
     wallPoints = thresholdPoints(polyData, 'dist_to_plane', [-0.01, 0.01])
-    updatePolyData(wallPoints, 'lever valve wall', parent=getDebugFolder(), visible=False)
+    updatePolyData(wallPoints, 'lever valve wall',
+                   parent=getDebugFolder(), visible=False)
 
-    searchRegion = thresholdPoints(polyData, 'dist_to_plane', [0.12, 0.2])  # very tight threshold
+    searchRegion = thresholdPoints(polyData, 'dist_to_plane', [
+                                   0.12, 0.2])  # very tight threshold
     searchRegion = cropToLineSegment(searchRegion, point1, point2)
     searchRegion = cropToLineSegment(searchRegion, point3, point4)
-    updatePolyData(searchRegion, 'lever search region', parent=getDebugFolder(), color=[1, 0, 0], visible=False)
+    updatePolyData(searchRegion, 'lever search region',
+                   parent=getDebugFolder(), color=[1, 0, 0], visible=False)
 
     # 3. fit line to remaining points - all assumed to be the lever
-    linePoint, lineDirection, _ = applyLineFit(searchRegion, distanceThreshold=0.02)
+    linePoint, lineDirection, _ = applyLineFit(
+        searchRegion, distanceThreshold=0.02)
     # if np.dot(lineDirection, forwardDirection) < 0:
     #    lineDirection = -lineDirection
 
     d = DebugData()
     d.addSphere(linePoint, radius=0.02)
-    updatePolyData(d.getPolyData(), 'lever point', parent=getDebugFolder(), visible=False)
+    updatePolyData(d.getPolyData(), 'lever point',
+                   parent=getDebugFolder(), visible=False)
 
     pts = vtkNumpy.getNumpyFromVtk(searchRegion, 'Points')
     dists = np.dot(pts - linePoint, lineDirection)
@@ -1605,11 +1706,14 @@ def segmentLeverByWallPlane(point1, point2):
 
     # a distant point down and left from wall
     wall_point_lower_left = [-20, -20.0, 0]
-    wall_point_lower_left_Transform = transformUtils.frameFromPositionAndRPY(wall_point_lower_left, [0, 0, 0])
+    wall_point_lower_left_Transform = transformUtils.frameFromPositionAndRPY(
+        wall_point_lower_left, [0, 0, 0])
     wall_point_lower_left_Transform.Concatenate(t)
     wall_point_lower_left = wall_point_lower_left_Transform.GetPosition()
-    d1 = np.sqrt(np.sum((wall_point_lower_left - projectPointToPlane(lever_center, origin, normal)) ** 2))
-    d2 = np.sqrt(np.sum((wall_point_lower_left - projectPointToPlane(lever_tip, origin, normal)) ** 2))
+    d1 = np.sqrt(np.sum((wall_point_lower_left -
+                 projectPointToPlane(lever_center, origin, normal)) ** 2))
+    d2 = np.sqrt(np.sum((wall_point_lower_left -
+                 projectPointToPlane(lever_tip, origin, normal)) ** 2))
 
     if (d2 < d1):  # flip the points to match variable names
         p_temp = lever_center
@@ -1628,8 +1732,10 @@ def segmentLeverByWallPlane(point1, point2):
     t.PostMultiply()
     t.Translate(lever_center)  # nominal frame at lever center
 
-    rotationAngle = -computeSignedAngleBetweenVectors(lineDirection, [0, 0, 1], -normal)
-    t_lever = transformUtils.frameFromPositionAndRPY([0, 0, 0], [0, 0, math.degrees(rotationAngle)])
+    rotationAngle = - \
+        computeSignedAngleBetweenVectors(lineDirection, [0, 0, 1], -normal)
+    t_lever = transformUtils.frameFromPositionAndRPY(
+        [0, 0, 0], [0, 0, math.degrees(rotationAngle)])
     t_lever.PostMultiply()
     t_lever.Concatenate(t)
 
@@ -1639,7 +1745,8 @@ def segmentLeverByWallPlane(point1, point2):
     d.addSphere(lever_center, radius=0.04)
     d.addSphere(lever_tip, radius=0.01)
     d.addLine(lever_center, lever_tip)
-    updatePolyData(d.getPolyData(), 'lever end points', color=[0, 1, 0], parent=getDebugFolder(), visible=False)
+    updatePolyData(d.getPolyData(), 'lever end points', color=[
+                   0, 1, 0], parent=getDebugFolder(), visible=False)
 
     radius = 0.01
     length = np.sqrt(np.sum((lever_tip - lever_center) ** 2))
@@ -1685,10 +1792,12 @@ def applyDiskGlyphs(polyData, computeNormals=True):
 
         pd = applyVoxelGrid(scanInput, leafSize=voxelGridLeafSize)
 
-        pd = labelOutliers(pd, searchRadius=normalEstimationSearchRadius, neighborsInSearchRadius=3)
+        pd = labelOutliers(
+            pd, searchRadius=normalEstimationSearchRadius, neighborsInSearchRadius=3)
         pd = thresholdPoints(pd, 'is_outlier', [0, 0])
 
-        pd = normalEstimation(pd, searchRadius=normalEstimationSearchRadius, searchCloud=scanInput)
+        pd = normalEstimation(
+            pd, searchRadius=normalEstimationSearchRadius, searchCloud=scanInput)
     else:
         pd = polyData
 
@@ -1721,9 +1830,11 @@ def applyArrowGlyphs(polyData, computeNormals=True, voxelGridLeafSize=0.03, norm
     if computeNormals:
         polyData = applyVoxelGrid(polyData, leafSize=0.02)
         voxelData = applyVoxelGrid(polyData, leafSize=voxelGridLeafSize)
-        polyData = normalEstimation(polyData, searchRadius=normalEstimationSearchRadius, searchCloud=voxelData)
+        polyData = normalEstimation(
+            polyData, searchRadius=normalEstimationSearchRadius, searchCloud=voxelData)
         polyData = removeNonFinitePoints(polyData, 'normals')
-        flipNormalsWithViewDirection(polyData, SegmentationContext.getGlobalInstance().getViewDirection())
+        flipNormalsWithViewDirection(
+            polyData, SegmentationContext.getGlobalInstance().getViewDirection())
 
     assert polyData.GetPointData().GetNormals()
 
@@ -1744,12 +1855,14 @@ def segmentLeverValve(point1, point2):
     inputObj = om.findObjectByName('pointcloud snapshot')
     polyData = inputObj.polyData
 
-    viewPlaneNormal = np.array(getSegmentationView().camera().GetViewPlaneNormal())
+    viewPlaneNormal = np.array(
+        getSegmentationView().camera().GetViewPlaneNormal())
     polyData, origin, normal = applyPlaneFit(polyData, expectedNormal=viewPlaneNormal, searchOrigin=point1,
                                              searchRadius=0.2, angleEpsilon=0.7, returnOrigin=True)
 
     wallPoints = thresholdPoints(polyData, 'dist_to_plane', [-0.01, 0.01])
-    updatePolyData(wallPoints, 'wall points', parent=getDebugFolder(), visible=False)
+    updatePolyData(wallPoints, 'wall points',
+                   parent=getDebugFolder(), visible=False)
 
     radius = 0.01
     length = 0.33
@@ -1790,15 +1903,18 @@ def segmentWye(point1, point2):
     inputObj = om.findObjectByName('pointcloud snapshot')
     polyData = inputObj.polyData
 
-    viewPlaneNormal = np.array(getSegmentationView().camera().GetViewPlaneNormal())
+    viewPlaneNormal = np.array(
+        getSegmentationView().camera().GetViewPlaneNormal())
 
     polyData, origin, normal = applyPlaneFit(polyData, expectedNormal=viewPlaneNormal, searchOrigin=point1,
                                              searchRadius=0.2, angleEpsilon=0.7, returnOrigin=True)
 
     wallPoints = thresholdPoints(polyData, 'dist_to_plane', [-0.01, 0.01])
-    updatePolyData(wallPoints, 'wall points', parent=getDebugFolder(), visible=False)
+    updatePolyData(wallPoints, 'wall points',
+                   parent=getDebugFolder(), visible=False)
 
-    wyeMesh = ioUtils.readPolyData(os.path.join(app.getDRCBase(), 'software/models/otdf/wye.obj'))
+    wyeMesh = ioUtils.readPolyData(os.path.join(
+        app.getDRCBase(), 'software/models/otdf/wye.obj'))
 
     wyeMeshPoint = np.array([0.0, 0.0, 0.005])
     wyeMeshLeftHandle = np.array([0.032292, 0.02949, 0.068485])
@@ -1817,9 +1933,11 @@ def segmentWye(point1, point2):
 
     d = DebugData()
     d.addSphere(point2, radius=0.005)
-    updatePolyData(d.getPolyData(), 'wye pick point', parent=getDebugFolder(), visible=False)
+    updatePolyData(d.getPolyData(), 'wye pick point',
+                   parent=getDebugFolder(), visible=False)
 
-    wyeObj = showPolyData(wyeMesh, 'wye', cls=FrameAffordanceItem, color=[0, 1, 0], visible=True)
+    wyeObj = showPolyData(wyeMesh, 'wye', cls=FrameAffordanceItem, color=[
+                          0, 1, 0], visible=True)
     wyeObj.actor.SetUserTransform(t)
     wyeObj.addToView(app.getDRCView())
     frameObj = showFrame(t, 'wye frame', parent=wyeObj, visible=False)
@@ -1835,13 +1953,15 @@ def segmentDoorHandle(otdfType, point1, point2):
     inputObj = om.findObjectByName('pointcloud snapshot')
     polyData = inputObj.polyData
 
-    viewPlaneNormal = np.array(getSegmentationView().camera().GetViewPlaneNormal())
+    viewPlaneNormal = np.array(
+        getSegmentationView().camera().GetViewPlaneNormal())
 
     polyData, origin, normal = applyPlaneFit(polyData, expectedNormal=viewPlaneNormal, searchOrigin=point1,
                                              searchRadius=0.2, angleEpsilon=0.7, returnOrigin=True)
 
     wallPoints = thresholdPoints(polyData, 'dist_to_plane', [-0.01, 0.01])
-    updatePolyData(wallPoints, 'wall points', parent=getDebugFolder(), visible=False)
+    updatePolyData(wallPoints, 'wall points',
+                   parent=getDebugFolder(), visible=False)
 
     handlePoint = np.array([0.005, 0.065, 0.011])
 
@@ -1868,7 +1988,8 @@ def segmentDoorHandle(otdfType, point1, point2):
     t.Translate(point2)
 
     name = 'door handle'
-    obj = showPolyData(cube, name, cls=FrameAffordanceItem, parent='affordances')
+    obj = showPolyData(cube, name, cls=FrameAffordanceItem,
+                       parent='affordances')
     obj.actor.SetUserTransform(t)
     obj.addToView(app.getDRCView())
 
@@ -1877,7 +1998,8 @@ def segmentDoorHandle(otdfType, point1, point2):
     obj.setAffordanceParams(params)
     obj.updateParamsFromActorTransform()
 
-    frameObj = showFrame(obj.actor.GetUserTransform(), name + ' frame', parent=obj, visible=False)
+    frameObj = showFrame(obj.actor.GetUserTransform(),
+                         name + ' frame', parent=obj, visible=False)
     frameObj.addToView(app.getDRCView())
 
 
@@ -1900,7 +2022,8 @@ def segmentTruss(point1, point2):
     stanceTransform.Translate(stanceOffset)
     # stanceTransform.RotateZ(stanceYaw)
 
-    geometry = transformPolyData(d.getPolyData(), stanceTransform.GetLinearInverse())
+    geometry = transformPolyData(
+        d.getPolyData(), stanceTransform.GetLinearInverse())
 
     yaxis = edge / edgeLength
     zaxis = [0.0, 0.0, 1.0]
@@ -1921,7 +2044,8 @@ def segmentTruss(point1, point2):
 
     name = 'truss'
     otdfType = 'robot_knees'
-    obj = showPolyData(geometry, name, cls=FrameAffordanceItem, parent='affordances')
+    obj = showPolyData(
+        geometry, name, cls=FrameAffordanceItem, parent='affordances')
     obj.actor.SetUserTransform(t)
     obj.addToView(app.getDRCView())
 
@@ -1930,7 +2054,8 @@ def segmentTruss(point1, point2):
     obj.setAffordanceParams(params)
     obj.updateParamsFromActorTransform()
 
-    frameObj = showFrame(obj.actor.GetUserTransform(), name + ' frame', parent=obj, visible=False)
+    frameObj = showFrame(obj.actor.GetUserTransform(),
+                         name + ' frame', parent=obj, visible=False)
     frameObj.addToView(app.getDRCView())
 
 
@@ -1939,7 +2064,8 @@ def segmentHoseNozzle(point1):
     polyData = inputObj.polyData
 
     searchRegion = cropToSphere(polyData, point1, 0.10)
-    updatePolyData(searchRegion, 'nozzle search region', parent=getDebugFolder(), visible=False)
+    updatePolyData(searchRegion, 'nozzle search region',
+                   parent=getDebugFolder(), visible=False)
 
     xaxis = [1, 0, 0]
     yaxis = [0, -1, 0]
@@ -1956,11 +2082,13 @@ def segmentHoseNozzle(point1):
     nozzleTipLength = 0.024
 
     d = DebugData()
-    d.addLine(np.array([0, 0, -nozzleLength / 2.0]), np.array([0, 0, nozzleLength / 2.0]), radius=nozzleRadius)
+    d.addLine(np.array([0, 0, -nozzleLength / 2.0]),
+              np.array([0, 0, nozzleLength / 2.0]), radius=nozzleRadius)
     d.addLine(np.array([0, 0, nozzleLength / 2.0]), np.array([0, 0, nozzleLength / 2.0 + nozzleTipLength]),
               radius=nozzleTipRadius)
 
-    obj = showPolyData(d.getPolyData(), 'hose nozzle', cls=FrameAffordanceItem, color=[0, 1, 0], visible=True)
+    obj = showPolyData(d.getPolyData(), 'hose nozzle',
+                       cls=FrameAffordanceItem, color=[0, 1, 0], visible=True)
     obj.actor.SetUserTransform(t)
     obj.addToView(app.getDRCView())
     frameObj = showFrame(t, 'nozzle frame', parent=obj, visible=False)
@@ -1978,7 +2106,8 @@ def segmentDrillWall(point1, point2, point3):
 
     points = [point1, point2, point3]
 
-    viewPlaneNormal = np.array(getSegmentationView().camera().GetViewPlaneNormal())
+    viewPlaneNormal = np.array(
+        getSegmentationView().camera().GetViewPlaneNormal())
     expectedNormal = np.cross(point2 - point1, point3 - point1)
     expectedNormal /= np.linalg.norm(expectedNormal)
     if np.dot(expectedNormal, viewPlaneNormal) < 0:
@@ -2011,7 +2140,8 @@ def segmentDrillWall(point1, point2, point3):
     for a, b in zip(pointsInWallFrame, pointsInWallFrame[1:] + [pointsInWallFrame[0]]):
         d.addLine(a, b, radius=0.015)
 
-    aff = showPolyData(d.getPolyData(), 'drill target', cls=FrameAffordanceItem, color=[0, 1, 0], visible=True)
+    aff = showPolyData(d.getPolyData(), 'drill target',
+                       cls=FrameAffordanceItem, color=[0, 1, 0], visible=True)
     aff.actor.SetUserTransform(t)
     showFrame(t, 'drill target frame', parent=aff, visible=False)
     refitWallCallbacks.append(functools.partial(refitDrillWall, aff))
@@ -2034,13 +2164,15 @@ def refitWall(point1):
     inputObj = om.findObjectByName('pointcloud snapshot')
     polyData = inputObj.polyData
 
-    viewPlaneNormal = np.array(getSegmentationView().camera().GetViewPlaneNormal())
+    viewPlaneNormal = np.array(
+        getSegmentationView().camera().GetViewPlaneNormal())
 
     polyData, origin, normal = applyPlaneFit(polyData, expectedNormal=viewPlaneNormal, searchOrigin=point1,
                                              searchRadius=0.2, angleEpsilon=0.7, returnOrigin=True)
 
     wallPoints = thresholdPoints(polyData, 'dist_to_plane', [-0.01, 0.01])
-    updatePolyData(wallPoints, 'wall points', parent=getDebugFolder(), visible=False)
+    updatePolyData(wallPoints, 'wall points',
+                   parent=getDebugFolder(), visible=False)
 
     for func in refitWallCallbacks:
         func(point1, origin, normal)
@@ -2081,7 +2213,8 @@ def segmentDrillWallConstrained(rightAngleLocation, point1, point2):
     inputObj = om.findObjectByName('pointcloud snapshot')
     polyData = inputObj.polyData
 
-    viewPlaneNormal = np.array(getSegmentationView().camera().GetViewPlaneNormal())
+    viewPlaneNormal = np.array(
+        getSegmentationView().camera().GetViewPlaneNormal())
     expectedNormal = np.cross(point2 - point1, [0.0, 0.0, 1.0])
     expectedNormal /= np.linalg.norm(expectedNormal)
     if np.dot(expectedNormal, viewPlaneNormal) < 0:
@@ -2133,7 +2266,8 @@ def createDrillWall(rightAngleLocation, trianglePose):
         pointsInWallFrame[1] = edgeRight
         pointsInWallFrame[2] = edgeRight - edgeUp
     else:
-        raise Exception('unexpected value for right angle location: ', + rightAngleLocation)
+        raise Exception(
+            'unexpected value for right angle location: ', + rightAngleLocation)
 
     center = pointsInWallFrame.sum(axis=0) / 3.0
     shrinkFactor = 1  # 0.90
@@ -2154,13 +2288,15 @@ def createDrillWall(rightAngleLocation, trianglePose):
     wall = om.findObjectByName('wall')
     om.removeFromObjectModel(wall)
 
-    aff = showPolyData(d.getPolyData(), 'wall', cls=FrameAffordanceItem, color=[0, 1, 0], visible=True, parent=folder)
+    aff = showPolyData(d.getPolyData(), 'wall', cls=FrameAffordanceItem, color=[
+                       0, 1, 0], visible=True, parent=folder)
     aff.actor.SetUserTransform(trianglePose)
     aff.addToView(app.getDRCView())
 
     refitWallCallbacks.append(functools.partial(refitDrillWall, aff))
 
-    frameObj = showFrame(trianglePose, 'wall frame', parent=aff, scale=0.2, visible=False)
+    frameObj = showFrame(trianglePose, 'wall frame',
+                         parent=aff, scale=0.2, visible=False)
     frameObj.addToView(app.getDRCView())
 
     params = dict(origin=triangleOrigin, xaxis=xaxis, yaxis=yaxis, zaxis=zaxis, xwidth=0.1, ywidth=0.1, zwidth=0.1,
@@ -2227,7 +2363,8 @@ def getDrillAffordanceParams(origin, xaxis, yaxis, zaxis, drillType="dewalt_butt
 
 def getDrillMesh(applyBitOffset=False):
     button = np.array([0.007, -0.035, -0.06])
-    drillMesh = ioUtils.readPolyData(os.path.join(app.getDRCBase(), 'software/models/otdf/dewalt_button.obj'))
+    drillMesh = ioUtils.readPolyData(os.path.join(
+        app.getDRCBase(), 'software/models/otdf/dewalt_button.obj'))
 
     if applyBitOffset:
         t = vtk.vtkTransform()
@@ -2237,7 +2374,8 @@ def getDrillMesh(applyBitOffset=False):
     d = DebugData()
     d.addPolyData(drillMesh)
     d.addSphere(button, radius=0.005, color=[0, 1, 0])
-    d.addLine([0.0, 0.0, 0.155], [0.0, 0.0, 0.14], radius=0.001, color=[0, 1, 0])
+    d.addLine([0.0, 0.0, 0.155], [0.0, 0.0, 0.14],
+              radius=0.001, color=[0, 1, 0])
 
     return shallowCopy(d.getPolyData())
 
@@ -2250,13 +2388,15 @@ def segmentDrill(point1, point2, point3):
     inputObj = om.findObjectByName('pointcloud snapshot')
     polyData = inputObj.polyData
 
-    viewPlaneNormal = np.array(getSegmentationView().camera().GetViewPlaneNormal())
+    viewPlaneNormal = np.array(
+        getSegmentationView().camera().GetViewPlaneNormal())
 
     polyData, origin, normal = applyPlaneFit(polyData, expectedNormal=viewPlaneNormal, searchOrigin=point1,
                                              searchRadius=0.2, angleEpsilon=0.7, returnOrigin=True)
 
     tablePoints = thresholdPoints(polyData, 'dist_to_plane', [-0.01, 0.01])
-    updatePolyData(tablePoints, 'table plane points', parent=getDebugFolder(), visible=False)
+    updatePolyData(tablePoints, 'table plane points',
+                   parent=getDebugFolder(), visible=False)
 
     searchRegion = thresholdPoints(polyData, 'dist_to_plane', [0.03, 0.4])
     searchRegion = cropToSphere(searchRegion, point2, 0.30)
@@ -2279,9 +2419,11 @@ def segmentDrill(point1, point2, point3):
 
     drillMesh = getDrillMesh()
 
-    aff = showPolyData(drillMesh, 'drill', cls=FrameAffordanceItem, visible=True)
+    aff = showPolyData(drillMesh, 'drill',
+                       cls=FrameAffordanceItem, visible=True)
     aff.actor.SetUserTransform(t)
-    showFrame(t, 'drill frame', parent=aff, visible=False).addToView(app.getDRCView())
+    showFrame(t, 'drill frame', parent=aff,
+              visible=False).addToView(app.getDRCView())
 
     params = getDrillAffordanceParams(origin, xaxis, yaxis, zaxis)
     aff.setAffordanceParams(params)
@@ -2355,7 +2497,8 @@ def makeMovable(obj, initialTransform=None):
     if frame:
         frame.copyFrame(t)
     else:
-        frame = vis.showFrame(t, obj.getProperty('Name') + ' frame', parent=obj, scale=0.2, visible=False)
+        frame = vis.showFrame(t, obj.getProperty(
+            'Name') + ' frame', parent=obj, scale=0.2, visible=False)
         obj.actor.SetUserTransform(t)
 
 
@@ -2383,13 +2526,17 @@ def segmentTable(polyData, searchPoint):
     tablePoints = thresholdPoints(polyData, 'dist_to_plane', [-0.01, 0.01])
 
     tablePoints = labelDistanceToPoint(tablePoints, searchPoint)
-    tablePointsClusters = extractClusters(tablePoints, minClusterSize=10, clusterTolerance=0.1)
-    tablePointsClusters.sort(key=lambda x: vtkNumpy.getNumpyFromVtk(x, 'distance_to_point').min())
+    tablePointsClusters = extractClusters(
+        tablePoints, minClusterSize=10, clusterTolerance=0.1)
+    tablePointsClusters.sort(
+        key=lambda x: vtkNumpy.getNumpyFromVtk(x, 'distance_to_point').min())
 
     tablePoints = tablePointsClusters[0]
 
-    updatePolyData(tablePoints, 'table plane points', parent=getDebugFolder(), visible=False)
-    updatePolyData(tablePoints, 'table points', parent=getDebugFolder(), visible=False)
+    updatePolyData(tablePoints, 'table plane points',
+                   parent=getDebugFolder(), visible=False)
+    updatePolyData(tablePoints, 'table points',
+                   parent=getDebugFolder(), visible=False)
 
     return polyData, tablePoints, origin, normal
 
@@ -2409,7 +2556,8 @@ def filterClusterObjects(clusters):
 
 
 def segmentTableScene(polyData, searchPoint, filterClustering=True):
-    objectClusters, tableData = segmentTableSceneClusters(polyData, searchPoint)
+    objectClusters, tableData = segmentTableSceneClusters(
+        polyData, searchPoint)
 
     clusters = [makePolyDataFields(cluster) for cluster in objectClusters]
     clusters = [cluster for cluster in clusters if cluster is not None]
@@ -2426,7 +2574,8 @@ def segmentTableScene(polyData, searchPoint, filterClustering=True):
         xaxis = np.cross(yaxis, zaxis)
         xaxis /= np.linalg.norm(xaxis)
         yaxis /= np.linalg.norm(yaxis)
-        orientedFrame = transformUtils.getTransformFromAxesAndOrigin(xaxis, yaxis, zaxis, cluster.frame.GetPosition())
+        orientedFrame = transformUtils.getTransformFromAxesAndOrigin(
+            xaxis, yaxis, zaxis, cluster.frame.GetPosition())
         cluster._add_fields(oriented_frame=orientedFrame)
 
     if (filterClustering):
@@ -2446,17 +2595,22 @@ def segmentTableSceneClusters(polyData, searchPoint, clusterInXY=False):
 
     searchRegion = thresholdPoints(polyData, 'dist_to_plane', [0.02, 0.5])
     # TODO: replace with 'all points above the table':
-    searchRegion = cropToSphere(searchRegion, tableData.frame.GetPosition(), 0.5)  # was 1.0
+    searchRegion = cropToSphere(
+        searchRegion, tableData.frame.GetPosition(), 0.5)  # was 1.0
 
-    showFrame(tableData.frame, 'tableFrame', visible=False, parent=getDebugFolder(), scale=0.15)
-    showPolyData(searchRegion, 'searchRegion', color=[1, 0, 0], visible=False, parent=getDebugFolder())
+    showFrame(tableData.frame, 'tableFrame', visible=False,
+              parent=getDebugFolder(), scale=0.15)
+    showPolyData(searchRegion, 'searchRegion', color=[
+                 1, 0, 0], visible=False, parent=getDebugFolder())
 
-    objectClusters = extractClusters(searchRegion, clusterInXY, clusterTolerance=0.02, minClusterSize=10)
+    objectClusters = extractClusters(
+        searchRegion, clusterInXY, clusterTolerance=0.02, minClusterSize=10)
 
-    # print 'got %d clusters' % len(objectClusters)
+    # print('got %d clusters' % len(objectClusters))
     for i, c in enumerate(objectClusters):
         name = "cluster %d" % i
-        showPolyData(c, name, color=getRandomColor(), visible=False, parent=getDebugFolder())
+        showPolyData(c, name, color=getRandomColor(),
+                     visible=False, parent=getDebugFolder())
 
     return objectClusters, tableData
 
@@ -2480,10 +2634,12 @@ def segmentTableAndFrame(polyData, searchPoint):
     viewFrame = SegmentationContext.getGlobalInstance().getViewFrame()
     viewDirection = SegmentationContext.getGlobalInstance().getViewDirection()
     robotYaw = math.atan2(viewDirection[1], viewDirection[0]) * 180.0 / np.pi
-    linkFrame = transformUtils.frameFromPositionAndRPY(viewFrame.GetPosition(), [0, 0, robotYaw])
+    linkFrame = transformUtils.frameFromPositionAndRPY(
+        viewFrame.GetPosition(), [0, 0, robotYaw])
 
     # Function returns corner point that is far right from the robot
-    cornerTransform, rectDepth, rectWidth, _ = findMinimumBoundingRectangle(tablePoints, linkFrame)
+    cornerTransform, rectDepth, rectWidth, _ = findMinimumBoundingRectangle(
+        tablePoints, linkFrame)
     rectHeight = 0.02  # arbitrary table width
 
     # recover mid point
@@ -2498,7 +2654,8 @@ def segmentTableAndFrame(polyData, searchPoint):
     tableXAxis, tableYAxis, tableZAxis = transformUtils.getAxesFromTransform(t)
     axes = tableXAxis, tableYAxis, tableZAxis
     wf = vtk.vtkOutlineSource()
-    wf.SetBounds([-rectDepth / 2, rectDepth / 2, -rectWidth / 2, rectWidth / 2, -rectHeight / 2, rectHeight / 2])
+    wf.SetBounds([-rectDepth / 2, rectDepth / 2, -rectWidth / 2,
+                 rectWidth / 2, -rectHeight / 2, rectHeight / 2])
     # wf.SetBoxTypeToOriented()
     # cube =[0,0,0,1,0,0,0,1,0,1,1,0,0,0,1,1,0,1,0,1,1,1,1,1]
     # wf.SetCorners(cube)
@@ -2523,14 +2680,17 @@ def segmentDrillAuto(point1, polyData=None):
                                              searchOrigin=point1, searchRadius=0.4, angleEpsilon=0.2, returnOrigin=True)
 
     tablePoints = thresholdPoints(polyData, 'dist_to_plane', [-0.01, 0.01])
-    updatePolyData(tablePoints, 'table plane points', parent=getDebugFolder(), visible=False)
+    updatePolyData(tablePoints, 'table plane points',
+                   parent=getDebugFolder(), visible=False)
 
     tablePoints = labelDistanceToPoint(tablePoints, point1)
     tablePointsClusters = extractClusters(tablePoints)
-    tablePointsClusters.sort(key=lambda x: vtkNumpy.getNumpyFromVtk(x, 'distance_to_point').min())
+    tablePointsClusters.sort(
+        key=lambda x: vtkNumpy.getNumpyFromVtk(x, 'distance_to_point').min())
 
     tablePoints = tablePointsClusters[0]
-    updatePolyData(tablePoints, 'table points', parent=getDebugFolder(), visible=False)
+    updatePolyData(tablePoints, 'table points',
+                   parent=getDebugFolder(), visible=False)
 
     searchRegion = thresholdPoints(polyData, 'dist_to_plane', [0.03, 0.4])
     searchRegion = cropToSphere(searchRegion, point1, 0.30)
@@ -2542,7 +2702,8 @@ def segmentDrillAuto(point1, polyData=None):
 
     centroidsPolyData = vtkNumpy.getVtkPolyDataFromNumpyPoints(centroids)
     d = DebugData()
-    updatePolyData(centroidsPolyData, 'cluster centroids', parent=getDebugFolder(), visible=False)
+    updatePolyData(centroidsPolyData, 'cluster centroids',
+                   parent=getDebugFolder(), visible=False)
 
     drillToTopPoint = np.array([-0.002904, -0.010029, 0.153182])
 
@@ -2562,9 +2723,11 @@ def segmentDrillAuto(point1, polyData=None):
 
     drillMesh = getDrillMesh()
 
-    aff = showPolyData(drillMesh, 'drill', cls=FrameAffordanceItem, visible=True)
+    aff = showPolyData(drillMesh, 'drill',
+                       cls=FrameAffordanceItem, visible=True)
     aff.actor.SetUserTransform(t)
-    showFrame(t, 'drill frame', parent=aff, visible=False, scale=0.2).addToView(app.getDRCView())
+    showFrame(t, 'drill frame', parent=aff, visible=False,
+              scale=0.2).addToView(app.getDRCView())
 
     params = getDrillAffordanceParams(origin, xaxis, yaxis, zaxis)
     aff.setAffordanceParams(params)
@@ -2575,7 +2738,8 @@ def segmentDrillAuto(point1, polyData=None):
 def segmentDrillButton(point1):
     d = DebugData()
     d.addSphere([0, 0, 0], radius=0.005)
-    obj = updatePolyData(d.getPolyData(), 'sensed drill button', color=[0, 0.5, 0.5], visible=True)
+    obj = updatePolyData(d.getPolyData(), 'sensed drill button', color=[
+                         0, 0.5, 0.5], visible=True)
 
     # there is no orientation, but this allows the XYZ point to be queried
     pointerTipFrame = transformUtils.frameFromPositionAndRPY(point1, [0, 0, 0])
@@ -2590,7 +2754,8 @@ def segmentDrillButton(point1):
 def segmentPointerTip(point1):
     d = DebugData()
     d.addSphere([0, 0, 0], radius=0.005)
-    obj = updatePolyData(d.getPolyData(), 'sensed pointer tip', color=[0.5, 0.5, 0.0], visible=True)
+    obj = updatePolyData(d.getPolyData(), 'sensed pointer tip', color=[
+                         0.5, 0.5, 0.0], visible=True)
 
     # there is no orientation, but this allows the XYZ point to be queried
     pointerTipFrame = transformUtils.frameFromPositionAndRPY(point1, [0, 0, 0])
@@ -2606,11 +2771,13 @@ def fitGroundObject(polyData=None, expectedDimensionsMin=[0.2, 0.02], expectedDi
     removeGroundFunc = removeGroundSimple
 
     polyData = polyData or getCurrentRevolutionData()
-    groundPoints, scenePoints = removeGroundFunc(polyData, groundThickness=0.02, sceneHeightFromGround=0.035)
+    groundPoints, scenePoints = removeGroundFunc(
+        polyData, groundThickness=0.02, sceneHeightFromGround=0.035)
 
     searchRegion = thresholdPoints(scenePoints, 'dist_to_plane', [0.05, 0.2])
 
-    clusters = extractClusters(searchRegion, clusterTolerance=0.07, minClusterSize=4)
+    clusters = extractClusters(
+        searchRegion, clusterTolerance=0.07, minClusterSize=4)
 
     candidates = []
     for clusterId, cluster in enumerate(clusters):
@@ -2626,7 +2793,8 @@ def fitGroundObject(polyData=None, expectedDimensionsMin=[0.2, 0.02], expectedDi
                            visible=False)
             continue
 
-        updatePolyData(cluster, 'cluster %d' % clusterId, color=[0, 1, 0], parent=getDebugFolder(), visible=False)
+        updatePolyData(cluster, 'cluster %d' % clusterId, color=[
+                       0, 1, 0], parent=getDebugFolder(), visible=False)
         candidates.append(cluster)
 
     if not candidates:
@@ -2635,7 +2803,8 @@ def fitGroundObject(polyData=None, expectedDimensionsMin=[0.2, 0.02], expectedDi
     viewFrame = SegmentationContext.getGlobalInstance().getViewFrame()
     viewOrigin = np.array(viewFrame.GetPosition())
 
-    dists = [np.linalg.norm(viewOrigin - computeCentroid(cluster)) for cluster in candidates]
+    dists = [np.linalg.norm(viewOrigin - computeCentroid(cluster))
+             for cluster in candidates]
     candidates = [candidates[i] for i in np.argsort(dists)]
 
     cluster = candidates[0]
@@ -2656,9 +2825,11 @@ def findHorizontalSurfaces(polyData, removeGroundFirst=False, normalEstimationSe
     verboseFlag = False
 
     if (removeGroundFirst):
-        groundPoints, scenePoints = removeGround(polyData, groundThickness=0.02, sceneHeightFromGround=0.05)
+        groundPoints, scenePoints = removeGround(
+            polyData, groundThickness=0.02, sceneHeightFromGround=0.05)
         scenePoints = thresholdPoints(scenePoints, 'dist_to_plane', searchZ)
-        updatePolyData(groundPoints, 'ground points', parent=getDebugFolder(), visible=verboseFlag)
+        updatePolyData(groundPoints, 'ground points',
+                       parent=getDebugFolder(), visible=verboseFlag)
     else:
         scenePoints = polyData
 
@@ -2678,23 +2849,27 @@ def findHorizontalSurfaces(polyData, removeGroundFirst=False, normalEstimationSe
     normalsDotUp = np.abs(np.dot(normals, [0, 0, 1]))
 
     vtkNumpy.addNumpyToVtk(scenePoints, normalsDotUp, 'normals_dot_up')
-    surfaces = thresholdPoints(scenePoints, 'normals_dot_up', normalsDotUpRange)
+    surfaces = thresholdPoints(
+        scenePoints, 'normals_dot_up', normalsDotUpRange)
 
     updatePolyData(scenePoints, 'scene points', parent=getDebugFolder(), colorByName='normals_dot_up',
                    visible=verboseFlag)
     updatePolyData(surfaces, 'surfaces points', parent=getDebugFolder(), colorByName='normals_dot_up',
                    visible=verboseFlag)
 
-    clusters = extractClusters(surfaces, clusterTolerance=clusterTolerance, minClusterSize=minClusterSize)
+    clusters = extractClusters(
+        surfaces, clusterTolerance=clusterTolerance, minClusterSize=minClusterSize)
     planeClusters = []
     clustersLarge = []
 
     om.removeFromObjectModel(om.findObjectByName('surface clusters'))
-    folder = om.getOrCreateContainer('surface clusters', parentObj=getDebugFolder())
+    folder = om.getOrCreateContainer(
+        'surface clusters', parentObj=getDebugFolder())
 
     for i, cluster in enumerate(clusters):
 
-        updatePolyData(cluster, 'surface cluster %d' % i, parent=folder, color=getRandomColor(), visible=verboseFlag)
+        updatePolyData(cluster, 'surface cluster %d' %
+                       i, parent=folder, color=getRandomColor(), visible=verboseFlag)
         planePoints, _ = applyPlaneFit(cluster, distanceToPlaneThreshold)
         planePoints = thresholdPoints(planePoints, 'dist_to_plane',
                                       [-distanceToPlaneThreshold, distanceToPlaneThreshold])
@@ -2705,7 +2880,8 @@ def findHorizontalSurfaces(polyData, removeGroundFirst=False, normalEstimationSe
             if obj is not None:
                 planeClusters.append(obj)
 
-    folder = om.getOrCreateContainer('surface objects', parentObj=getDebugFolder())
+    folder = om.getOrCreateContainer(
+        'surface objects', parentObj=getDebugFolder())
     if showClusters:
         vis.showClusterObjects(planeClusters, parent=folder)
 
@@ -2720,7 +2896,8 @@ def fitVerticalPosts(polyData):
         return
 
     scenePoints = applyVoxelGrid(scenePoints, leafSize=0.03)
-    clusters = extractClusters(scenePoints, clusterTolerance=0.15, minClusterSize=10)
+    clusters = extractClusters(
+        scenePoints, clusterTolerance=0.15, minClusterSize=10)
 
     def isPostCluster(cluster, lineDirection):
 
@@ -2764,7 +2941,8 @@ def fitVerticalPosts(polyData):
 
         origin = (p1 + p2) / 2.0
         lineLength = np.linalg.norm(p2 - p1)
-        t = transformUtils.getTransformFromOriginAndNormal(origin, lineDirection)
+        t = transformUtils.getTransformFromOriginAndNormal(
+            origin, lineDirection)
         pose = transformUtils.poseFromTransform(t)
 
         desc = dict(classname='CylinderAffordanceItem', Name='post %d' % postId,
@@ -2773,12 +2951,15 @@ def fitVerticalPosts(polyData):
 
         return affordanceManager.newAffordanceFromDescription(desc)
 
-    rejectFolder = om.getOrCreateContainer('nonpost clusters', parentObj=getDebugFolder())
-    keepFolder = om.getOrCreateContainer('post clusters', parentObj=getDebugFolder())
+    rejectFolder = om.getOrCreateContainer(
+        'nonpost clusters', parentObj=getDebugFolder())
+    keepFolder = om.getOrCreateContainer(
+        'post clusters', parentObj=getDebugFolder())
 
     for i, cluster in enumerate(clusters):
 
-        linePoint, lineDirection, linePoints = applyLineFit(cluster, distanceThreshold=0.1)
+        linePoint, lineDirection, linePoints = applyLineFit(
+            cluster, distanceThreshold=0.1)
         if isPostCluster(cluster, lineDirection):
             vis.showPolyData(cluster, 'cluster %d' % i, visible=False, color=getRandomColor(), alpha=0.5,
                              parent=keepFolder)
@@ -2796,7 +2977,8 @@ def findAndFitDrillBarrel(polyData=None):
     inputObj = om.findObjectByName('pointcloud snapshot')
     polyData = polyData or inputObj.polyData
 
-    groundPoints, scenePoints = removeGround(polyData, groundThickness=0.02, sceneHeightFromGround=0.50)
+    groundPoints, scenePoints = removeGround(
+        polyData, groundThickness=0.02, sceneHeightFromGround=0.50)
 
     scenePoints = thresholdPoints(scenePoints, 'dist_to_plane', [0.5, 1.7])
 
@@ -2818,11 +3000,15 @@ def findAndFitDrillBarrel(polyData=None):
 
     surfaces = thresholdPoints(scenePoints, 'normals_dot_up', [0.95, 1.0])
 
-    updatePolyData(groundPoints, 'ground points', parent=getDebugFolder(), visible=False)
-    updatePolyData(scenePoints, 'scene points', parent=getDebugFolder(), colorByName='normals_dot_up', visible=False)
-    updatePolyData(surfaces, 'surfaces', parent=getDebugFolder(), visible=False)
+    updatePolyData(groundPoints, 'ground points',
+                   parent=getDebugFolder(), visible=False)
+    updatePolyData(scenePoints, 'scene points', parent=getDebugFolder(
+    ), colorByName='normals_dot_up', visible=False)
+    updatePolyData(surfaces, 'surfaces',
+                   parent=getDebugFolder(), visible=False)
 
-    clusters = extractClusters(surfaces, clusterTolerance=0.15, minClusterSize=50)
+    clusters = extractClusters(
+        surfaces, clusterTolerance=0.15, minClusterSize=50)
 
     fitResults = []
 
@@ -2832,8 +3018,8 @@ def findAndFitDrillBarrel(polyData=None):
     robotOrigin = viewFrame.GetPosition()
     robotForward = forwardDirection
 
-    # print 'robot origin:', robotOrigin
-    # print 'robot forward:', robotForward
+    # print('robot origin:', robotOrigin)
+    # print('robot forward:', robotForward)
     centroid = []
 
     for clusterId, cluster in enumerate(clusters):
@@ -2845,7 +3031,7 @@ def findAndFitDrillBarrel(polyData=None):
 
         skipCluster = False
         for edgeLength in edgeLengths:
-            # print 'cluster %d edge length: %f' % (clusterId, edgeLength)
+            # print('cluster %d edge length: %f' % (clusterId, edgeLength))
             if edgeLength < 0.35 or edgeLength > 0.75:
                 skipCluster = True
 
@@ -2853,15 +3039,17 @@ def findAndFitDrillBarrel(polyData=None):
             continue
 
         clusterObj.setSolidColor([0, 0, 1])
-        centroid = np.average(vtkNumpy.getNumpyFromVtk(cluster, 'Points'), axis=0)
+        centroid = np.average(
+            vtkNumpy.getNumpyFromVtk(cluster, 'Points'), axis=0)
 
         try:
-            drillFrame = segmentDrillBarrelFrame(centroid, polyData=scenePoints, forwardDirection=robotForward)
+            drillFrame = segmentDrillBarrelFrame(
+                centroid, polyData=scenePoints, forwardDirection=robotForward)
             if drillFrame is not None:
                 fitResults.append((clusterObj, drillFrame))
         except:
-            print traceback.format_exc()
-            print 'fit drill failed for cluster:', clusterId
+            print(traceback.format_exc())
+            print('fit drill failed for cluster:', clusterId)
 
     if not fitResults:
         return
@@ -2877,13 +3065,14 @@ def sortFittedDrills(fitResults, robotOrigin, robotForward):
     for fitResult in fitResults:
         cluster, drillFrame = fitResult
         drillOrigin = np.array(drillFrame.GetPosition())
-        angleToDrill = np.abs(computeSignedAngleBetweenVectors(robotForward, drillOrigin - robotOrigin, [0, 0, 1]))
+        angleToDrill = np.abs(computeSignedAngleBetweenVectors(
+            robotForward, drillOrigin - robotOrigin, [0, 0, 1]))
         angleToFitResults.append((angleToDrill, cluster, drillFrame))
-        # print 'angle to candidate drill:', angleToDrill
+        # print('angle to candidate drill:', angleToDrill)
 
     angleToFitResults.sort(key=lambda x: x[0])
 
-    # print 'using drill at angle:', angleToFitResults[0][0]
+    # print('using drill at angle:', angleToFitResults[0][0])
 
     drillMesh = getDrillBarrelMesh()
 
@@ -2894,11 +3083,14 @@ def sortFittedDrills(fitResults, robotOrigin, robotForward):
         if i == 0:
 
             drill = om.findObjectByName('drill')
-            drill = updatePolyData(drillMesh, 'drill', color=[0, 1, 0], cls=FrameAffordanceItem, visible=True)
-            drillFrame = updateFrame(drillFrame, 'drill frame', parent=drill, visible=False)
+            drill = updatePolyData(drillMesh, 'drill', color=[
+                                   0, 1, 0], cls=FrameAffordanceItem, visible=True)
+            drillFrame = updateFrame(
+                drillFrame, 'drill frame', parent=drill, visible=False)
             drill.actor.SetUserTransform(drillFrame.transform)
 
-            drill.setAffordanceParams(dict(otdf_type='dewalt_button', friendly_name='dewalt_button'))
+            drill.setAffordanceParams(
+                dict(otdf_type='dewalt_button', friendly_name='dewalt_button'))
             drill.updateParamsFromActorTransform()
 
             drill.setSolidColor([0, 1, 0])
@@ -2906,7 +3098,8 @@ def sortFittedDrills(fitResults, robotOrigin, robotForward):
 
         else:
 
-            drill = showPolyData(drillMesh, 'drill candidate', color=[1, 0, 0], visible=False, parent=getDebugFolder())
+            drill = showPolyData(drillMesh, 'drill candidate', color=[
+                                 1, 0, 0], visible=False, parent=getDebugFolder())
             drill.actor.SetUserTransform(drillFrame)
             om.addToObjectModel(drill, parentObj=getDebugFolder())
 
@@ -2943,17 +3136,20 @@ def segmentDrillBarrelFrame(point1, polyData, forwardDirection):
         return
 
     tablePoints = thresholdPoints(polyData, 'dist_to_plane', [-0.01, 0.01])
-    updatePolyData(tablePoints, 'table plane points', parent=getDebugFolder(), visible=False)
+    updatePolyData(tablePoints, 'table plane points',
+                   parent=getDebugFolder(), visible=False)
 
     tablePoints = labelDistanceToPoint(tablePoints, point1)
     tablePointsClusters = extractClusters(tablePoints)
-    tablePointsClusters.sort(key=lambda x: vtkNumpy.getNumpyFromVtk(x, 'distance_to_point').min())
+    tablePointsClusters.sort(
+        key=lambda x: vtkNumpy.getNumpyFromVtk(x, 'distance_to_point').min())
 
     if not tablePointsClusters:
         return
 
     tablePoints = tablePointsClusters[0]
-    updatePolyData(tablePoints, 'table points', parent=getDebugFolder(), visible=False)
+    updatePolyData(tablePoints, 'table points',
+                   parent=getDebugFolder(), visible=False)
 
     searchRegion = thresholdPoints(polyData, 'dist_to_plane', [0.02, 0.3])
     if not searchRegion.GetNumberOfPoints():
@@ -2962,7 +3158,8 @@ def segmentDrillBarrelFrame(point1, polyData, forwardDirection):
     searchRegion = cropToSphere(searchRegion, point1, drillClusterSearchRadius)
     # drillPoints = extractLargestCluster(searchRegion, minClusterSize=1)
 
-    t = fitDrillBarrel(searchRegion, forwardDirection, plane_origin, plane_normal)
+    t = fitDrillBarrel(searchRegion, forwardDirection,
+                       plane_origin, plane_normal)
     return t
 
 
@@ -2970,7 +3167,8 @@ def segmentDrillBarrel(point1):
     inputObj = om.findObjectByName('pointcloud snapshot')
     polyData = inputObj.polyData
 
-    forwardDirection = -np.array(getCurrentView().camera().GetViewPlaneNormal())
+    forwardDirection = - \
+        np.array(getCurrentView().camera().GetViewPlaneNormal())
 
     t = segmentDrillBarrel(point1, polyData, forwardDirection)
     assert t is not None
@@ -2998,28 +3196,28 @@ def segmentDrillAlignedWithTable(point, polyData=None):
 
     # segment the table and recover the precise up direction normal:
     polyDataOut, tablePoints, origin, normal = segmentTable(polyData, point)
-    # print origin # this origin is bunk
+    # print(origin # this origin is bunk)
     # tableCentroid = computeCentroid(tablePoints)
 
     # get the bounding box edges
     OBBorigin, edges, _ = getOrientedBoundingBox(tablePoints)
-    # print "OBB out"
-    # print OBBorigin
-    # print edges
+    # print("OBB out")
+    # print(OBBorigin)
+    # print(edges)
     edgeLengths = np.array([np.linalg.norm(edge) for edge in edges])
     axes = [edge / np.linalg.norm(edge) for edge in edges]
-    # print edgeLengths
-    # print axes
+    # print(edgeLengths)
+    # print(axes)
 
     # check which direction the robot is facing and flip x-axis of table if necessary
     viewDirection = SegmentationContext.getGlobalInstance().getViewDirection()
-    # print "main axes", axes[1]
-    # print "viewDirection", viewDirection
+    # print("main axes", axes[1])
+    # print("viewDirection", viewDirection)
     # dp = np.dot(axes[1], viewDirection)
-    # print dp
+    # print(dp)
 
     if np.dot(axes[1], viewDirection) < 0:
-        # print "flip the x-direction"
+        # print("flip the x-direction")
         axes[1] = -axes[1]
 
     # define the x-axis to be along the 2nd largest edge
@@ -3054,11 +3252,13 @@ def segmentDrillAlignedWithTable(point, polyData=None):
     drill = om.findObjectByName('drill')
     om.removeFromObjectModel(drill)
 
-    aff = showPolyData(drillMesh, 'drill', color=[0.0, 1.0, 0.0], cls=FrameAffordanceItem, visible=True)
+    aff = showPolyData(drillMesh, 'drill', color=[
+                       0.0, 1.0, 0.0], cls=FrameAffordanceItem, visible=True)
     aff.actor.SetUserTransform(drillTransform)
     aff.addToView(app.getDRCView())
 
-    frameObj = updateFrame(drillTransform, 'drill frame', parent=aff, scale=0.2, visible=False)
+    frameObj = updateFrame(drillTransform, 'drill frame',
+                           parent=aff, scale=0.2, visible=False)
     frameObj.addToView(app.getDRCView())
 
     params = getDrillAffordanceParams(np.array(drillTransform.GetPosition()), [1, 0, 0], [0, 1, 0], [0, 0, 1],
@@ -3073,14 +3273,17 @@ def segmentDrillInHand(p1, p2):
     distanceToLineThreshold = 0.05
 
     polyData = labelDistanceToLine(polyData, p1, p2)
-    polyData = thresholdPoints(polyData, 'distance_to_line', [0.0, distanceToLineThreshold])
+    polyData = thresholdPoints(polyData, 'distance_to_line', [
+                               0.0, distanceToLineThreshold])
 
     lineSegment = p2 - p1
     lineLength = np.linalg.norm(lineSegment)
 
-    cropped, polyData = cropToPlane(polyData, p1, lineSegment / lineLength, [-0.03, lineLength + 0.03])
+    cropped, polyData = cropToPlane(
+        polyData, p1, lineSegment / lineLength, [-0.03, lineLength + 0.03])
 
-    updatePolyData(cropped, 'drill cluster', parent=getDebugFolder(), visible=False)
+    updatePolyData(cropped, 'drill cluster',
+                   parent=getDebugFolder(), visible=False)
 
     drillPoints = cropped
     normal = lineSegment / lineLength
@@ -3089,7 +3292,8 @@ def segmentDrillInHand(p1, p2):
 
     centroidsPolyData = vtkNumpy.getVtkPolyDataFromNumpyPoints(centroids)
     d = DebugData()
-    updatePolyData(centroidsPolyData, 'cluster centroids', parent=getDebugFolder(), visible=False)
+    updatePolyData(centroidsPolyData, 'cluster centroids',
+                   parent=getDebugFolder(), visible=False)
 
     drillToTopPoint = np.array([-0.002904, -0.010029, 0.153182])
 
@@ -3108,11 +3312,14 @@ def segmentDrillInHand(p1, p2):
 
     drillMesh = getDrillMesh()
 
-    aff = showPolyData(drillMesh, 'drill', cls=FrameAffordanceItem, visible=True)
+    aff = showPolyData(drillMesh, 'drill',
+                       cls=FrameAffordanceItem, visible=True)
     aff.actor.SetUserTransform(t)
-    showFrame(t, 'drill frame', parent=aff, visible=False).addToView(app.getDRCView())
+    showFrame(t, 'drill frame', parent=aff,
+              visible=False).addToView(app.getDRCView())
 
-    params = getDrillAffordanceParams(np.array(t.GetPosition()), xaxis, yaxis, zaxis)
+    params = getDrillAffordanceParams(
+        np.array(t.GetPosition()), xaxis, yaxis, zaxis)
     aff.setAffordanceParams(params)
     aff.updateParamsFromActorTransform()
     aff.addToView(app.getDRCView())
@@ -3121,13 +3328,16 @@ def segmentDrillInHand(p1, p2):
 def addDrillAffordance():
     drillMesh = getDrillMesh()
 
-    aff = showPolyData(drillMesh, 'drill', cls=FrameAffordanceItem, visible=True)
+    aff = showPolyData(drillMesh, 'drill',
+                       cls=FrameAffordanceItem, visible=True)
     t = vtk.vtkTransform()
     t.PostMultiply()
     aff.actor.SetUserTransform(t)
-    showFrame(t, 'drill frame', parent=aff, visible=False).addToView(app.getDRCView())
+    showFrame(t, 'drill frame', parent=aff,
+              visible=False).addToView(app.getDRCView())
 
-    params = getDrillAffordanceParams(np.array(t.GetPosition()), [1, 0, 0], [0, 1, 0], [0, 0, 1])
+    params = getDrillAffordanceParams(np.array(t.GetPosition()), [
+                                      1, 0, 0], [0, 1, 0], [0, 0, 1])
     aff.setAffordanceParams(params)
     aff.updateParamsFromActorTransform()
     aff.addToView(app.getDRCView())
@@ -3181,7 +3391,7 @@ class PointPicker(TimerCallback):
         self.clear()
 
     def clear(self):
-        self.points = [None for i in xrange(self.numberOfPoints)]
+        self.points = [None for i in range(self.numberOfPoints)]
         self.hoverPos = None
         self.annotationFunc = None
         self.lastMovePos = [0, 0]
@@ -3191,11 +3401,11 @@ class PointPicker(TimerCallback):
 
     def onMousePress(self, displayPoint, modifiers=None):
 
-        # print 'mouse press:', modifiers
+        # print('mouse press:', modifiers)
         # if not modifiers:
         #    return
 
-        for i in xrange(self.numberOfPoints):
+        for i in range(self.numberOfPoints):
             if self.points[i] is None:
                 self.points[i] = self.hoverPos
                 break
@@ -3238,7 +3448,8 @@ class PointPicker(TimerCallback):
             if points[-1] is not None:
                 d.addLine(points[0], points[-1])
 
-        self.annotationObj = updatePolyData(d.getPolyData(), 'annotation', parent=getDebugFolder())
+        self.annotationObj = updatePolyData(
+            d.getPolyData(), 'annotation', parent=getDebugFolder())
         self.annotationObj.setProperty('Color', QtGui.QColor(0, 255, 0))
         self.annotationObj.actor.SetPickable(False)
 
@@ -3252,7 +3463,8 @@ class PointPicker(TimerCallback):
             self.finish()
             return
 
-        pickedPointFields = pickPoint(self.lastMovePos, getSegmentationView(), obj='pointcloud snapshot')
+        pickedPointFields = pickPoint(
+            self.lastMovePos, getSegmentationView(), obj='pointcloud snapshot')
         self.hoverPos = pickedPointFields.pickedPoint
         self.draw()
 
@@ -3359,13 +3571,16 @@ def labelDistanceToPoint(polyData, point, resultArrayName='distance_to_point'):
 
 
 def getPlaneEquationFromPolyData(polyData, expectedNormal):
-    _, origin, normal = applyPlaneFit(polyData, expectedNormal=expectedNormal, returnOrigin=True)
+    _, origin, normal = applyPlaneFit(
+        polyData, expectedNormal=expectedNormal, returnOrigin=True)
     return origin, normal, np.hstack((normal, [np.dot(origin, normal)]))
 
 
 def computeEdge(polyData, edgeAxis, perpAxis, binWidth=0.03):
-    polyData = labelPointDistanceAlongAxis(polyData, edgeAxis, resultArrayName='dist_along_edge')
-    polyData = labelPointDistanceAlongAxis(polyData, perpAxis, resultArrayName='dist_perp_to_edge')
+    polyData = labelPointDistanceAlongAxis(
+        polyData, edgeAxis, resultArrayName='dist_along_edge')
+    polyData = labelPointDistanceAlongAxis(
+        polyData, perpAxis, resultArrayName='dist_perp_to_edge')
 
     polyData, bins = binByScalar(polyData, 'dist_along_edge', binWidth)
     points = vtkNumpy.getNumpyFromVtk(polyData, 'Points')
@@ -3374,7 +3589,7 @@ def computeEdge(polyData, edgeAxis, perpAxis, binWidth=0.03):
 
     numberOfBins = len(bins) - 1
     edgePoints = []
-    for i in xrange(numberOfBins):
+    for i in range(numberOfBins):
         binPoints = points[binLabels == i]
         binDists = distToEdge[binLabels == i]
         if len(binDists):
@@ -3384,7 +3599,8 @@ def computeEdge(polyData, edgeAxis, perpAxis, binWidth=0.03):
 
 
 def computeCentroids(polyData, axis, binWidth=0.025):
-    polyData = labelPointDistanceAlongAxis(polyData, axis, resultArrayName='dist_along_axis')
+    polyData = labelPointDistanceAlongAxis(
+        polyData, axis, resultArrayName='dist_along_axis')
 
     polyData, bins = binByScalar(polyData, 'dist_along_axis', binWidth)
     points = vtkNumpy.getNumpyFromVtk(polyData, 'Points')
@@ -3392,7 +3608,7 @@ def computeCentroids(polyData, axis, binWidth=0.025):
 
     numberOfBins = len(bins) - 1
     centroids = []
-    for i in xrange(numberOfBins):
+    for i in range(numberOfBins):
         binPoints = points[binLabels == i]
 
         if len(binPoints):
@@ -3402,7 +3618,8 @@ def computeCentroids(polyData, axis, binWidth=0.025):
 
 
 def computePointCountsAlongAxis(polyData, axis, binWidth=0.025):
-    polyData = labelPointDistanceAlongAxis(polyData, axis, resultArrayName='dist_along_axis')
+    polyData = labelPointDistanceAlongAxis(
+        polyData, axis, resultArrayName='dist_along_axis')
 
     polyData, bins = binByScalar(polyData, 'dist_along_axis', binWidth)
     points = vtkNumpy.getNumpyFromVtk(polyData, 'Points')
@@ -3410,7 +3627,7 @@ def computePointCountsAlongAxis(polyData, axis, binWidth=0.025):
 
     numberOfBins = len(bins) - 1
     binCount = []
-    for i in xrange(numberOfBins):
+    for i in range(numberOfBins):
         binPoints = points[binLabels == i]
         binCount.append(len(binPoints))
 
@@ -3441,7 +3658,8 @@ def showObbs(polyData):
     assert polyData.GetPointData().GetArray(labelsArrayName)
 
     f = vtk.vtkAnnotateOBBs()
-    f.SetInputArrayToProcess(0, 0, 0, vtk.vtkDataObject.FIELD_ASSOCIATION_POINTS, labelsArrayName)
+    f.SetInputArrayToProcess(
+        0, 0, 0, vtk.vtkDataObject.FIELD_ASSOCIATION_POINTS, labelsArrayName)
     f.SetInput(polyData)
     f.Update()
     showPolyData(f.GetOutput(), 'bboxes')
@@ -3460,17 +3678,18 @@ def getOrientedBoundingBox(polyData):
     vtkNumpy.addNumpyToVtk(polyData, labels, labelsArrayName)
 
     f = vtk.vtkAnnotateOBBs()
-    f.SetInputArrayToProcess(0, 0, 0, vtk.vtkDataObject.FIELD_ASSOCIATION_POINTS, labelsArrayName)
+    f.SetInputArrayToProcess(
+        0, 0, 0, vtk.vtkDataObject.FIELD_ASSOCIATION_POINTS, labelsArrayName)
     f.SetInput(polyData)
     f.Update()
 
     assert f.GetNumberOfBoundingBoxes() == 1
 
     origin = np.zeros(3)
-    edges = [np.zeros(3) for i in xrange(3)]
+    edges = [np.zeros(3) for i in range(3)]
 
     f.GetBoundingBoxOrigin(0, origin)
-    for i in xrange(3):
+    for i in range(3):
         f.GetBoundingBoxEdge(0, i, edges[i])
 
     return origin, edges, shallowCopy(f.GetOutput())
@@ -3534,12 +3753,14 @@ def segmentBlockByAnnotation(blockDimensions, p1, p2, p3):
     t.PostMultiply()
     t.Translate(origin)
 
-    obj = updatePolyData(cube, 'block affordance', cls=BlockAffordanceItem, parent='affordances')
+    obj = updatePolyData(cube, 'block affordance',
+                         cls=BlockAffordanceItem, parent='affordances')
     obj.actor.SetUserTransform(t)
 
     obj.addToView(app.getDRCView())
 
-    params = dict(origin=origin, xwidth=xwidth, ywidth=ywidth, zwidth=zwidth, xaxis=xaxis, yaxis=yaxis, zaxis=zaxis)
+    params = dict(origin=origin, xwidth=xwidth, ywidth=ywidth,
+                  zwidth=zwidth, xaxis=xaxis, yaxis=yaxis, zaxis=zaxis)
     obj.setAffordanceParams(params)
     obj.updateParamsFromActorTransform()
 
@@ -3549,8 +3770,9 @@ def segmentBlockByAnnotation(blockDimensions, p1, p2, p3):
 
 def getBoardCorners(params):
     axes = [np.array(params[axis]) for axis in ['xaxis', 'yaxis', 'zaxis']]
-    widths = [np.array(params[axis]) / 2.0 for axis in ['xwidth', 'ywidth', 'zwidth']]
-    edges = [axes[i] * widths[i] for i in xrange(3)]
+    widths = [np.array(params[axis]) /
+              2.0 for axis in ['xwidth', 'ywidth', 'zwidth']]
+    edges = [axes[i] * widths[i] for i in range(3)]
     origin = np.array(params['origin'])
     return [
         origin + edges[0] + edges[1] + edges[2],
@@ -3581,7 +3803,8 @@ def computeGroundFrame(aff, referenceFrame):
     refAxis = np.array(refAxis)
 
     axes = [np.array(aff.params[axis]) for axis in ['xaxis', 'yaxis', 'zaxis']]
-    axisProjections = np.array([np.abs(np.dot(axis, refAxis)) for axis in axes])
+    axisProjections = np.array(
+        [np.abs(np.dot(axis, refAxis)) for axis in axes])
     boardAxis = axes[axisProjections.argmax()]
     if np.dot(boardAxis, refAxis) < 0:
         boardAxis = -boardAxis
@@ -3607,7 +3830,8 @@ def computeCornerFrame(aff, referenceFrame):
     axes = [np.array(aff.params[axis]) for axis in ['xaxis', 'yaxis', 'zaxis']]
     edgeLengths = [edgeLength for edgeLength in ['xwidth', 'ywidth', 'zwidth']]
 
-    axisProjections = np.array([np.abs(np.dot(axis, refAxis)) for axis in axes])
+    axisProjections = np.array(
+        [np.abs(np.dot(axis, refAxis)) for axis in axes])
     boardAxis = axes[axisProjections.argmax()]
     if np.dot(boardAxis, refAxis) < 0:
         boardAxis = -boardAxis
@@ -3635,7 +3859,8 @@ def createBlockAffordance(origin, xaxis, yaxis, zaxis, xwidth, ywidth, zwidth, n
     obj.actor.SetUserTransform(t)
 
     om.addToObjectModel(obj, parentObj=om.getOrCreateContainer(parent))
-    frameObj = vis.showFrame(t, name + ' frame', scale=0.2, visible=False, parent=obj)
+    frameObj = vis.showFrame(
+        t, name + ' frame', scale=0.2, visible=False, parent=obj)
 
     obj.addToView(app.getDRCView())
     frameObj.addToView(app.getDRCView())
@@ -3670,7 +3895,8 @@ def segmentBlockByTopPlane(polyData, blockDimensions, expectedNormal, expectedXA
     edgePoints = vtkNumpy.getVtkPolyDataFromNumpyPoints(edgePoints)
 
     d = DebugData()
-    obj = updatePolyData(edgePoints, 'edge points', parent=getDebugFolder(), visible=False)
+    obj = updatePolyData(edgePoints, 'edge points',
+                         parent=getDebugFolder(), visible=False)
 
     linePoint, lineDirection, _ = applyLineFit(edgePoints)
     zaxis = lineDirection
@@ -3685,7 +3911,8 @@ def segmentBlockByTopPlane(polyData, blockDimensions, expectedNormal, expectedXA
     yaxis /= np.linalg.norm(yaxis)
     zaxis /= np.linalg.norm(zaxis)
 
-    polyData = labelPointDistanceAlongAxis(polyData, xaxis, resultArrayName='dist_along_line')
+    polyData = labelPointDistanceAlongAxis(
+        polyData, xaxis, resultArrayName='dist_along_line')
     pts = vtkNumpy.getNumpyFromVtk(polyData, 'Points')
 
     dists = np.dot(pts - linePoint, zaxis)
@@ -3699,7 +3926,8 @@ def segmentBlockByTopPlane(polyData, blockDimensions, expectedNormal, expectedXA
     xwidth, ywidth = blockDimensions
     zwidth = np.linalg.norm(p2 - p1)
 
-    origin = p1 - edgeSign * xaxis * xwidth / 2.0 - yaxis * ywidth / 2.0 + zaxis * zwidth / 2.0
+    origin = p1 - edgeSign * xaxis * xwidth / 2.0 - \
+        yaxis * ywidth / 2.0 + zaxis * zwidth / 2.0
 
     d = DebugData()
 
@@ -3707,7 +3935,6 @@ def segmentBlockByTopPlane(polyData, blockDimensions, expectedNormal, expectedXA
     # d.addLine(linePoint, linePoint + yaxis*ywidth)
     # d.addLine(linePoint, linePoint + xaxis*xwidth)
     # d.addLine(linePoint, linePoint + zaxis*zwidth)
-
 
     d.addSphere(p1, radius=0.01)
     d.addSphere(p2, radius=0.01)
@@ -3726,7 +3953,8 @@ def segmentBlockByTopPlane(polyData, blockDimensions, expectedNormal, expectedXA
     # obj.setProperty('Color', QtGui.QColor(255, 255, 0))
     # obj.setProperty('Visible', False)
 
-    obj = createBlockAffordance(origin, xaxis, yaxis, zaxis, xwidth, ywidth, zwidth, name)
+    obj = createBlockAffordance(
+        origin, xaxis, yaxis, zaxis, xwidth, ywidth, zwidth, name)
     obj.setProperty('Color', [222 / 255.0, 184 / 255.0, 135 / 255.0])
 
     computeDebrisGraspSeed(obj)
@@ -3742,7 +3970,8 @@ def computeDebrisGraspSeed(aff):
     if debrisReferenceFrame:
         debrisReferenceFrame = debrisReferenceFrame.transform
         affCornerFrame = computeCornerFrame(aff, debrisReferenceFrame)
-        showFrame(affCornerFrame, 'board corner frame', parent=aff, visible=False)
+        showFrame(affCornerFrame, 'board corner frame',
+                  parent=aff, visible=False)
 
 
 def computeDebrisStanceFrame(aff):
@@ -3755,7 +3984,8 @@ def computeDebrisStanceFrame(aff):
 
         affGroundFrame = computeGroundFrame(aff, debrisReferenceFrame)
 
-        updateFrame(affGroundFrame, 'board ground frame', parent=getDebugFolder(), visible=False)
+        updateFrame(affGroundFrame, 'board ground frame',
+                    parent=getDebugFolder(), visible=False)
 
         affWallEdge = computeGroundFrame(aff, debrisReferenceFrame)
 
@@ -3772,7 +4002,8 @@ def computeDebrisStanceFrame(aff):
 
         if useWallFrameForRotation:
             affWallFrame.SetMatrix(debrisReferenceFrame.GetMatrix())
-            affWallFrame.Translate(projectedPos - np.array(debrisReferenceFrame.GetPosition()))
+            affWallFrame.Translate(
+                projectedPos - np.array(debrisReferenceFrame.GetPosition()))
 
             stanceWidth = 0.20
             stanceOffsetX = -0.35
@@ -3798,8 +4029,10 @@ def segmentBlockByPlanes(blockDimensions):
     planes = om.findObjectByName('selected planes').children()[:2]
 
     viewPlaneNormal = getSegmentationView().camera().GetViewPlaneNormal()
-    origin1, normal1, plane1 = getPlaneEquationFromPolyData(planes[0].polyData, expectedNormal=viewPlaneNormal)
-    origin2, normal2, plane2 = getPlaneEquationFromPolyData(planes[1].polyData, expectedNormal=viewPlaneNormal)
+    origin1, normal1, plane1 = getPlaneEquationFromPolyData(
+        planes[0].polyData, expectedNormal=viewPlaneNormal)
+    origin2, normal2, plane2 = getPlaneEquationFromPolyData(
+        planes[1].polyData, expectedNormal=viewPlaneNormal)
 
     xaxis = normal2
     yaxis = normal1
@@ -3849,11 +4082,13 @@ def segmentBlockByPlanes(blockDimensions):
     t.PostMultiply()
     t.Translate(origin)
 
-    obj = updatePolyData(cube, 'block affordance', cls=BlockAffordanceItem, parent='affordances')
+    obj = updatePolyData(cube, 'block affordance',
+                         cls=BlockAffordanceItem, parent='affordances')
     obj.actor.SetUserTransform(t)
     obj.addToView(app.getDRCView())
 
-    params = dict(origin=origin, xwidth=xwidth, ywidth=ywidth, zwidth=zwidth, xaxis=xaxis, yaxis=yaxis, zaxis=zaxis)
+    params = dict(origin=origin, xwidth=xwidth, ywidth=ywidth,
+                  zwidth=zwidth, xaxis=xaxis, yaxis=yaxis, zaxis=zaxis)
     obj.setAffordanceParams(params)
     obj.updateParamsFromActorTransform()
 
@@ -3880,29 +4115,33 @@ def estimatePointerTip(robotModel, polyData):
     d.addSphere(p1, radius=0.005)
     d.addSphere(p2, radius=0.005)
     d.addLine(p1, p2)
-    vis.updatePolyData(d.getPolyData(), 'pointer line', color=[1, 0, 0], parent=getDebugFolder(), visible=False)
+    vis.updatePolyData(d.getPolyData(), 'pointer line', color=[
+                       1, 0, 0], parent=getDebugFolder(), visible=False)
 
     polyData = cropToLineSegment(polyData, p1, p2)
     if not polyData.GetNumberOfPoints():
-        # print 'pointer search region is empty'
+        # print('pointer search region is empty')
         return None
 
-    vis.updatePolyData(polyData, 'cropped to pointer line', parent=getDebugFolder(), visible=False)
+    vis.updatePolyData(polyData, 'cropped to pointer line',
+                       parent=getDebugFolder(), visible=False)
 
     polyData = labelDistanceToLine(polyData, p1, p2)
 
     polyData = thresholdPoints(polyData, 'distance_to_line', [0.0, 0.07])
 
     if polyData.GetNumberOfPoints() < 2:
-        # print 'pointer search region is empty'
+        # print('pointer search region is empty')
         return None
 
     updatePolyData(polyData, 'distance to pointer line', colorByName='distance_to_line', parent=getDebugFolder(),
                    visible=False)
 
     ransacDistanceThreshold = 0.0075
-    lineOrigin, lineDirection, polyData = applyLineFit(polyData, distanceThreshold=ransacDistanceThreshold)
-    updatePolyData(polyData, 'line fit ransac', colorByName='ransac_labels', parent=getDebugFolder(), visible=False)
+    lineOrigin, lineDirection, polyData = applyLineFit(
+        polyData, distanceThreshold=ransacDistanceThreshold)
+    updatePolyData(polyData, 'line fit ransac', colorByName='ransac_labels',
+                   parent=getDebugFolder(), visible=False)
 
     lineDirection = np.array(lineDirection)
     lineDirection /= np.linalg.norm(lineDirection)
@@ -3913,7 +4152,7 @@ def estimatePointerTip(robotModel, polyData):
     polyData = thresholdPoints(polyData, 'ransac_labels', [1.0, 1.0])
 
     if polyData.GetNumberOfPoints() < 2:
-        # print 'pointer ransac line fit failed to find inliers'
+        # print('pointer ransac line fit failed to find inliers')
         return None
 
     obj = updatePolyData(polyData, 'line fit points', colorByName='dist_along_line', parent=getDebugFolder(),
@@ -3931,7 +4170,8 @@ def estimatePointerTip(robotModel, polyData):
     # d.addSphere(p1, radius=0.005)
     d.addSphere(p2, radius=0.005)
     d.addLine(p1, p2)
-    vis.updatePolyData(d.getPolyData(), 'fit pointer line', color=[0, 1, 0], parent=getDebugFolder(), visible=True)
+    vis.updatePolyData(d.getPolyData(), 'fit pointer line', color=[
+                       0, 1, 0], parent=getDebugFolder(), visible=True)
 
     return p2
 
@@ -3949,7 +4189,8 @@ def startValveSegmentationByWallPlane(expectedValveRadius):
     addViewPicker(picker)
     picker.enabled = True
     picker.start()
-    picker.annotationFunc = functools.partial(segmentValveByWallPlane, expectedValveRadius)
+    picker.annotationFunc = functools.partial(
+        segmentValveByWallPlane, expectedValveRadius)
 
 
 def startValveSegmentationManual(expectedValveRadius):
@@ -3958,7 +4199,8 @@ def startValveSegmentationManual(expectedValveRadius):
     picker.enabled = True
     picker.drawLines = False
     picker.start()
-    picker.annotationFunc = functools.partial(segmentValve, expectedValveRadius)
+    picker.annotationFunc = functools.partial(
+        segmentValve, expectedValveRadius)
 
 
 def startRefitWall():
@@ -4102,7 +4344,8 @@ def startDrillWallSegmentationConstrained(rightAngleLocation):
     picker.enabled = True
     picker.drawLines = False
     picker.start()
-    picker.annotationFunc = functools.partial(segmentDrillWallConstrained, rightAngleLocation)
+    picker.annotationFunc = functools.partial(
+        segmentDrillWallConstrained, rightAngleLocation)
 
 
 def startDrillInHandSegmentation():
@@ -4131,7 +4374,7 @@ def startSegmentDebrisWallManual():
 
 
 def selectToolTip(point1):
-    print point1
+    print(point1)
 
 
 def segmentDebrisWallManual(point1, point2):
@@ -4141,7 +4384,8 @@ def segmentDebrisWallManual(point1, point2):
     d.addSphere(p1, radius=0.01)
     d.addSphere(p2, radius=0.01)
     d.addLine(p1, p2)
-    edgeObj = updatePolyData(d.getPolyData(), 'debris plane edge', visible=True)
+    edgeObj = updatePolyData(
+        d.getPolyData(), 'debris plane edge', visible=True)
     edgeObj.points = [p1, p2]
 
     xaxis = p2 - p1
@@ -4159,14 +4403,16 @@ def segmentDebrisWallManual(point1, point2):
     refFrame.PostMultiply()
     refFrame.SetMatrix(t.GetMatrix())
     refFrame.Translate(-xaxis + yaxis + zaxis * 20.0)
-    updateFrame(refFrame, 'debris reference frame', parent=edgeObj, visible=False)
+    updateFrame(refFrame, 'debris reference frame',
+                parent=edgeObj, visible=False)
 
 
 def segmentDebrisWall(point1):
     inputObj = om.findObjectByName('pointcloud snapshot')
     polyData = shallowCopy(inputObj.polyData)
 
-    viewPlaneNormal = np.array(getSegmentationView().camera().GetViewPlaneNormal())
+    viewPlaneNormal = np.array(
+        getSegmentationView().camera().GetViewPlaneNormal())
 
     polyData, origin, normal = applyPlaneFit(polyData, distanceThreshold=0.02, expectedNormal=viewPlaneNormal,
                                              perpendicularAxis=viewPlaneNormal,
@@ -4174,21 +4420,26 @@ def segmentDebrisWall(point1):
                                              returnOrigin=True)
 
     planePoints = thresholdPoints(polyData, 'dist_to_plane', [-0.02, 0.02])
-    updatePolyData(planePoints, 'unbounded plane points', parent=getDebugFolder(), visible=False)
+    updatePolyData(planePoints, 'unbounded plane points',
+                   parent=getDebugFolder(), visible=False)
 
     planePoints = applyVoxelGrid(planePoints, leafSize=0.03)
-    planePoints = labelOutliers(planePoints, searchRadius=0.06, neighborsInSearchRadius=10)
+    planePoints = labelOutliers(
+        planePoints, searchRadius=0.06, neighborsInSearchRadius=10)
 
-    updatePolyData(planePoints, 'voxel plane points', parent=getDebugFolder(), colorByName='is_outlier', visible=False)
+    updatePolyData(planePoints, 'voxel plane points', parent=getDebugFolder(
+    ), colorByName='is_outlier', visible=False)
 
     planePoints = thresholdPoints(planePoints, 'is_outlier', [0, 0])
 
     planePoints = labelDistanceToPoint(planePoints, point1)
     clusters = extractClusters(planePoints, clusterTolerance=0.10)
-    clusters.sort(key=lambda x: vtkNumpy.getNumpyFromVtk(x, 'distance_to_point').min())
+    clusters.sort(key=lambda x: vtkNumpy.getNumpyFromVtk(
+        x, 'distance_to_point').min())
 
     planePoints = clusters[0]
-    planeObj = updatePolyData(planePoints, 'debris plane points', parent=getDebugFolder(), visible=False)
+    planeObj = updatePolyData(
+        planePoints, 'debris plane points', parent=getDebugFolder(), visible=False)
 
     perpAxis = [0, 0, -1]
     perpAxis /= np.linalg.norm(perpAxis)
@@ -4196,12 +4447,12 @@ def segmentDebrisWall(point1):
 
     edgePoints = computeEdge(planePoints, edgeAxis, perpAxis)
     edgePoints = vtkNumpy.getVtkPolyDataFromNumpyPoints(edgePoints)
-    updatePolyData(edgePoints, 'edge points', parent=getDebugFolder(), visible=False)
+    updatePolyData(edgePoints, 'edge points',
+                   parent=getDebugFolder(), visible=False)
 
     linePoint, lineDirection, _ = applyLineFit(edgePoints)
 
     # binCounts = computePointCountsAlongAxis(planePoints, lineDirection)
-
 
     xaxis = lineDirection
     yaxis = normal
@@ -4226,7 +4477,8 @@ def segmentDebrisWall(point1):
     d.addSphere(p1, radius=0.01)
     d.addSphere(p2, radius=0.01)
     d.addLine(p1, p2)
-    edgeObj = updatePolyData(d.getPolyData(), 'debris plane edge', parent=planeObj, visible=True)
+    edgeObj = updatePolyData(
+        d.getPolyData(), 'debris plane edge', parent=planeObj, visible=True)
     edgeObj.points = [p1, p2]
 
     t = getTransformFromAxes(xaxis, yaxis, zaxis)
@@ -4239,35 +4491,42 @@ def segmentDebrisWall(point1):
     refFrame.PostMultiply()
     refFrame.SetMatrix(t.GetMatrix())
     refFrame.Translate(-xaxis + yaxis + zaxis * 20.0)
-    updateFrame(refFrame, 'debris reference frame', parent=planeObj, visible=False)
+    updateFrame(refFrame, 'debris reference frame',
+                parent=planeObj, visible=False)
 
 
 def segmentBoundedPlaneByAnnotation(point1, point2):
     inputObj = om.findObjectByName('pointcloud snapshot')
     polyData = shallowCopy(inputObj.polyData)
 
-    viewPlaneNormal = np.array(getSegmentationView().camera().GetViewPlaneNormal())
+    viewPlaneNormal = np.array(
+        getSegmentationView().camera().GetViewPlaneNormal())
 
     polyData, origin, normal = applyPlaneFit(polyData, distanceThreshold=0.015, expectedNormal=viewPlaneNormal,
                                              perpendicularAxis=viewPlaneNormal,
                                              searchOrigin=point1, searchRadius=0.3, angleEpsilon=0.7, returnOrigin=True)
 
     planePoints = thresholdPoints(polyData, 'dist_to_plane', [-0.015, 0.015])
-    updatePolyData(planePoints, 'unbounded plane points', parent=getDebugFolder(), visible=False)
+    updatePolyData(planePoints, 'unbounded plane points',
+                   parent=getDebugFolder(), visible=False)
 
     planePoints = applyVoxelGrid(planePoints, leafSize=0.03)
-    planePoints = labelOutliers(planePoints, searchRadius=0.06, neighborsInSearchRadius=12)
+    planePoints = labelOutliers(
+        planePoints, searchRadius=0.06, neighborsInSearchRadius=12)
 
-    updatePolyData(planePoints, 'voxel plane points', parent=getDebugFolder(), colorByName='is_outlier', visible=False)
+    updatePolyData(planePoints, 'voxel plane points', parent=getDebugFolder(
+    ), colorByName='is_outlier', visible=False)
 
     planePoints = thresholdPoints(planePoints, 'is_outlier', [0, 0])
 
     planePoints = labelDistanceToPoint(planePoints, point1)
     clusters = extractClusters(planePoints, clusterTolerance=0.10)
-    clusters.sort(key=lambda x: vtkNumpy.getNumpyFromVtk(x, 'distance_to_point').min())
+    clusters.sort(key=lambda x: vtkNumpy.getNumpyFromVtk(
+        x, 'distance_to_point').min())
 
     planePoints = clusters[0]
-    updatePolyData(planePoints, 'plane points', parent=getDebugFolder(), visible=False)
+    updatePolyData(planePoints, 'plane points',
+                   parent=getDebugFolder(), visible=False)
 
     perpAxis = point2 - point1
     perpAxis /= np.linalg.norm(perpAxis)
@@ -4275,7 +4534,8 @@ def segmentBoundedPlaneByAnnotation(point1, point2):
 
     edgePoints = computeEdge(planePoints, edgeAxis, perpAxis)
     edgePoints = vtkNumpy.getVtkPolyDataFromNumpyPoints(edgePoints)
-    updatePolyData(edgePoints, 'edge points', parent=getDebugFolder(), visible=False)
+    updatePolyData(edgePoints, 'edge points',
+                   parent=getDebugFolder(), visible=False)
 
     linePoint, lineDirection, _ = applyLineFit(edgePoints)
 
@@ -4303,7 +4563,8 @@ def segmentBoundedPlaneByAnnotation(point1, point2):
     d.addSphere(p1, radius=0.01)
     d.addSphere(p2, radius=0.01)
     d.addLine(p1, p2)
-    updatePolyData(d.getPolyData(), 'plane edge', parent=getDebugFolder(), visible=False)
+    updatePolyData(d.getPolyData(), 'plane edge',
+                   parent=getDebugFolder(), visible=False)
 
     t = getTransformFromAxes(xaxis, yaxis, zaxis)
     t.PostMultiply()
@@ -4343,7 +4604,8 @@ def saveCameraParams(overwrite=False):
     if overwrite or (savedCameraParams is None):
         view = getSegmentationView()
         c = view.camera()
-        savedCameraParams = dict(Position=c.GetPosition(), FocalPoint=c.GetFocalPoint(), ViewUp=c.GetViewUp())
+        savedCameraParams = dict(Position=c.GetPosition(
+        ), FocalPoint=c.GetFocalPoint(), ViewUp=c.GetViewUp())
 
 
 def getDefaultAffordanceObject():
@@ -4447,14 +4709,16 @@ def orthoZ():
 
 
 def zoomToDisplayPoint(displayPoint, boundsRadius=0.5, view=None):
-    pickedPointFields = pickPoint(displayPoint, getSegmentationView(), obj='pointcloud snapshot')
+    pickedPointFields = pickPoint(
+        displayPoint, getSegmentationView(), obj='pointcloud snapshot')
     pickedPoint = pickedPointFields.pickedPoint
     if pickedPoint is None:
         return
 
     view = view or app.getCurrentRenderView()
 
-    worldPt1, worldPt2 = getRayFromDisplayPoint(getSegmentationView(), displayPoint)
+    worldPt1, worldPt2 = getRayFromDisplayPoint(
+        getSegmentationView(), displayPoint)
 
     diagonal = np.array([boundsRadius, boundsRadius, boundsRadius])
     bounds = np.hstack([pickedPoint - diagonal, pickedPoint + diagonal])
@@ -4475,16 +4739,19 @@ def extractPointsAlongClickRay(position, ray, polyData=None, distanceToLineThres
     polyData = labelDistanceToLine(polyData, position, position + ray)
 
     # extract points near line
-    polyData = thresholdPoints(polyData, 'distance_to_line', [0.0, distanceToLineThreshold])
+    polyData = thresholdPoints(polyData, 'distance_to_line', [
+                               0.0, distanceToLineThreshold])
     if not polyData.GetNumberOfPoints():
         return None
 
-    polyData = labelPointDistanceAlongAxis(polyData, ray, origin=position, resultArrayName='distance_along_line')
+    polyData = labelPointDistanceAlongAxis(
+        polyData, ray, origin=position, resultArrayName='distance_along_line')
     polyData = thresholdPoints(polyData, 'distance_along_line', [0.20, 1e6])
     if not polyData.GetNumberOfPoints():
         return None
 
-    updatePolyData(polyData, 'ray points', colorByName='distance_to_line', visible=False, parent=getDebugFolder())
+    updatePolyData(polyData, 'ray points', colorByName='distance_to_line',
+                   visible=False, parent=getDebugFolder())
 
     if nearestToCamera:
         dists = vtkNumpy.getNumpyFromVtk(polyData, 'distance_along_line')
@@ -4497,13 +4764,15 @@ def extractPointsAlongClickRay(position, ray, polyData=None, distanceToLineThres
     d = DebugData()
     d.addSphere(intersectionPoint, radius=0.005)
     d.addLine(position, intersectionPoint)
-    obj = updatePolyData(d.getPolyData(), 'intersecting ray', visible=False, color=[0, 1, 0], parent=getDebugFolder())
+    obj = updatePolyData(d.getPolyData(), 'intersecting ray', visible=False, color=[
+                         0, 1, 0], parent=getDebugFolder())
     obj.actor.GetProperty().SetLineWidth(2)
 
     d2 = DebugData()
     end_of_ray = position + 2 * ray
     d2.addLine(position, end_of_ray)
-    obj2 = updatePolyData(d2.getPolyData(), 'camera ray', visible=False, color=[1, 0, 0], parent=getDebugFolder())
+    obj2 = updatePolyData(d2.getPolyData(), 'camera ray', visible=False, color=[
+                          1, 0, 0], parent=getDebugFolder())
     obj2.actor.GetProperty().SetLineWidth(2)
 
     return intersectionPoint
@@ -4523,7 +4792,7 @@ def segmentDrillWallFromTag(position, ray):
     polyData = getCurrentRevolutionData()
 
     if (polyData is None):  # no data yet
-        print "no LIDAR data yet"
+        print("no LIDAR data yet")
         return False
 
     point1 = extractPointsAlongClickRay(position, ray, polyData)
@@ -4561,7 +4830,8 @@ def segmentDrillWallFromTag(position, ray):
 
     d = DebugData()
     d.addSphere(intersection_point, radius=0.002)
-    obj = updatePolyData(d.getPolyData(), 'intersection', parent=wall, visible=False, color=[0, 1, 0])  #
+    obj = updatePolyData(d.getPolyData(), 'intersection',
+                         parent=wall, visible=False, color=[0, 1, 0])  #
     obj.actor.GetProperty().SetLineWidth(1)
     return True
 
@@ -4580,14 +4850,16 @@ def segmentDrillWallFromWallCenter():
     # conincides with the distance from the april tag to this position
     wallFrame = transformUtils.copyFrame(findWallCenter(polyData))
     wallFrame.PreMultiply()
-    t3 = transformUtils.frameFromPositionAndRPY([-0.07, -0.3276, 0], [180, -90, 0])
+    t3 = transformUtils.frameFromPositionAndRPY(
+        [-0.07, -0.3276, 0], [180, -90, 0])
     wallFrame.Concatenate(t3)
 
     rightAngleLocation = 'bottom left'
     createDrillWall(rightAngleLocation, wallFrame)
 
     wall = om.findObjectByName('wall')
-    vis.updateFrame(wallFrame, 'wall fit lidar', parent=wall, visible=False, scale=0.2)
+    vis.updateFrame(wallFrame, 'wall fit lidar',
+                    parent=wall, visible=False, scale=0.2)
 
 
 def findFarRightCorner(polyData, linkFrame):
@@ -4598,18 +4870,23 @@ def findFarRightCorner(polyData, linkFrame):
 
     diagonalTransform = transformUtils.copyFrame(linkFrame)
     diagonalTransform.PreMultiply()
-    diagonalTransform.Concatenate(transformUtils.frameFromPositionAndRPY([0, 0, 0], [0, 0, 45]))
-    vis.updateFrame(diagonalTransform, 'diagonal frame', parent=getDebugFolder(), visible=False)
+    diagonalTransform.Concatenate(
+        transformUtils.frameFromPositionAndRPY([0, 0, 0], [0, 0, 45]))
+    vis.updateFrame(diagonalTransform, 'diagonal frame',
+                    parent=getDebugFolder(), visible=False)
 
     points = vtkNumpy.getNumpyFromVtk(polyData, 'Points')
     viewOrigin = diagonalTransform.TransformPoint([0.0, 0.0, 0.0])
     viewX = diagonalTransform.TransformVector([1.0, 0.0, 0.0])
     viewY = diagonalTransform.TransformVector([0.0, 1.0, 0.0])
     viewZ = diagonalTransform.TransformVector([0.0, 0.0, 1.0])
-    polyData = labelPointDistanceAlongAxis(polyData, viewY, origin=viewOrigin, resultArrayName='distance_along_foot_y')
+    polyData = labelPointDistanceAlongAxis(
+        polyData, viewY, origin=viewOrigin, resultArrayName='distance_along_foot_y')
 
-    vis.updatePolyData(polyData, 'cornerPoints', parent='segmentation', visible=False)
-    farRightIndex = vtkNumpy.getNumpyFromVtk(polyData, 'distance_along_foot_y').argmin()
+    vis.updatePolyData(polyData, 'cornerPoints',
+                       parent='segmentation', visible=False)
+    farRightIndex = vtkNumpy.getNumpyFromVtk(
+        polyData, 'distance_along_foot_y').argmin()
     points = vtkNumpy.getNumpyFromVtk(polyData, 'Points')
     return points[farRightIndex, :]
 
@@ -4634,12 +4911,14 @@ def findMinimumBoundingRectangle(polyData, linkFrame):
 
     pts = vtkNumpy.getNumpyFromVtk(polyData, 'Points')
     xy_points = pts[:, [0, 1]]
-    vis.updatePolyData(get2DAsPolyData(xy_points), 'xy_points', parent=getDebugFolder(), visible=False)
+    vis.updatePolyData(get2DAsPolyData(xy_points), 'xy_points',
+                       parent=getDebugFolder(), visible=False)
     hull_points = qhull_2d.qhull2D(xy_points)
-    vis.updatePolyData(get2DAsPolyData(hull_points), 'hull_points', parent=getDebugFolder(), visible=False)
+    vis.updatePolyData(get2DAsPolyData(hull_points),
+                       'hull_points', parent=getDebugFolder(), visible=False)
     # Reverse order of points, to match output from other qhull implementations
     hull_points = hull_points[::-1]
-    # print 'Convex hull points: \n', hull_points, "\n"
+    # print('Convex hull points: \n', hull_points, "\n")
 
     # Find minimum area bounding rectangle
     (rot_angle, rectArea, rectDepth, rectWidth, center_point, corner_points_ground) = min_bounding_rect.minBoundingRect(
@@ -4648,7 +4927,8 @@ def findMinimumBoundingRectangle(polyData, linkFrame):
                        visible=False)
 
     polyDataCentroid = computeCentroid(polyData)
-    cornerPoints = np.vstack((corner_points_ground.T, polyDataCentroid[2] * np.ones(corner_points_ground.shape[0]))).T
+    cornerPoints = np.vstack(
+        (corner_points_ground.T, polyDataCentroid[2] * np.ones(corner_points_ground.shape[0]))).T
     cornerPolyData = vtkNumpy.getVtkPolyDataFromNumpyPoints(cornerPoints)
 
     # Create a frame at the far right point - which points away from the robot
@@ -4660,9 +4940,10 @@ def findMinimumBoundingRectangle(polyData, linkFrame):
 
     robotYaw = math.atan2(viewDirection[1], viewDirection[0]) * 180.0 / np.pi
     blockAngle = rot_angle * (180 / math.pi)
-    # print "robotYaw   ", robotYaw
-    # print "blockAngle ", blockAngle
-    blockAngleAll = np.array([blockAngle, blockAngle + 90, blockAngle + 180, blockAngle + 270])
+    # print("robotYaw   ", robotYaw)
+    # print("blockAngle ", blockAngle)
+    blockAngleAll = np.array(
+        [blockAngle, blockAngle + 90, blockAngle + 180, blockAngle + 270])
 
     values = blockAngleAll - robotYaw
     for i in range(0, 4):
@@ -4672,21 +4953,23 @@ def findMinimumBoundingRectangle(polyData, linkFrame):
     values = abs(values)
     min_idx = np.argmin(values)
     if ((min_idx == 1) or (min_idx == 3)):
-        # print "flip rectDepth and rectWidth as angle is not away from robot"
-        temp = rectWidth;
-        rectWidth = rectDepth;
+        # print("flip rectDepth and rectWidth as angle is not away from robot")
+        temp = rectWidth
+        rectWidth = rectDepth
         rectDepth = temp
 
-    # print "best angle", blockAngleAll[min_idx]
+    # print("best angle", blockAngleAll[min_idx])
     rot_angle = blockAngleAll[min_idx] * math.pi / 180.0
 
-    cornerTransform = transformUtils.frameFromPositionAndRPY(farRightCorner, [0, 0, np.rad2deg(rot_angle)])
+    cornerTransform = transformUtils.frameFromPositionAndRPY(
+        farRightCorner, [0, 0, np.rad2deg(rot_angle)])
 
-    vis.showFrame(cornerTransform, "cornerTransform", parent=getDebugFolder(), visible=False)
+    vis.showFrame(cornerTransform, "cornerTransform",
+                  parent=getDebugFolder(), visible=False)
 
-    # print "Minimum area bounding box:"
-    # print "Rotation angle:", rot_angle, "rad  (", rot_angle*(180/math.pi), "deg )"
-    # print "rectDepth:", rectDepth, " rectWidth:", rectWidth, "  Area:", rectArea
-    # print "Center point: \n", center_point # numpy array
-    # print "Corner points: \n", cornerPoints, "\n"  # numpy array
+    # print("Minimum area bounding box:")
+    # print("Rotation angle:", rot_angle, "rad  (", rot_angle*(180/math.pi), "deg )")
+    # print("rectDepth:", rectDepth, " rectWidth:", rectWidth, "  Area:", rectArea)
+    # print("Center point: \n", center_point # numpy array)
+    # print("Corner points: \n", cornerPoints, "\n"  # numpy array)
     return cornerTransform, rectDepth, rectWidth, rectArea

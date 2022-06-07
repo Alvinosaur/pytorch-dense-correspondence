@@ -16,12 +16,12 @@ install_ubuntu_deps_common()
     libxext-dev \
     libxt-dev \
     lsb-release \
-    python-coverage \
-    python-dev \
-    python-lxml \
-    python-numpy \
-    python-scipy \
-    python-yaml \
+    python3.6-coverage \
+    python3.6-dev \
+    python3.6-lxml \
+    python3.6-numpy \
+    python3.6-scipy \
+    python3.6-yaml \
     wget \
     xvfb \
     curl

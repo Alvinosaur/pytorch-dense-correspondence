@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cv2
 
+
 def normalize_descriptor(res, stats=None):
     """
     Normalizes the descriptor into RGB color space
@@ -25,6 +26,7 @@ def normalize_descriptor(res, stats=None):
     normed_res = (normed_res - res_min) / scale
     return normed_res
 
+
 def normalize_descriptor_pair(res_a, res_b):
     """
     Normalizes the descriptor into RGB color space
@@ -39,22 +41,22 @@ def normalize_descriptor_pair(res_a, res_b):
     normed_res_a = np.zeros_like(res_a)
     normed_res_b = np.zeros_like(res_b)
 
-    for d in xrange(D):
-        both_min = min(np.min(res_a[:,:,d]), np.min(res_b[:,:,d]))
-        both_max = max(np.max(res_a[:,:,d]), np.max(res_b[:,:,d]))
+    for d in range(D):
+        both_min = min(np.min(res_a[:, :, d]), np.min(res_b[:, :, d]))
+        both_max = max(np.max(res_a[:, :, d]), np.max(res_b[:, :, d]))
         scale_factor = both_max - both_min
-        normed_res_a[:,:,d] = (res_a[:,:,d] - both_min)/scale_factor
-        normed_res_b[:,:,d] = (res_b[:,:,d] - both_min)/scale_factor
+        normed_res_a[:, :, d] = (res_a[:, :, d] - both_min) / scale_factor
+        normed_res_b[:, :, d] = (res_b[:, :, d] - both_min) / scale_factor
 
-        
     return normed_res_a, normed_res_b
+
 
 def normalize_masked_descriptor_pair(res_a, res_b, mask_a, mask_b):
     # needs to be per-channel
     D = np.shape(res_a)[-1]
 
-    mask_a= np.repeat(mask_a[:,:,np.newaxis], D, axis=2)
-    mask_b = np.repeat(mask_b[:,:,np.newaxis], D, axis=2)
+    mask_a = np.repeat(mask_a[:, :, np.newaxis], D, axis=2)
+    mask_b = np.repeat(mask_b[:, :, np.newaxis], D, axis=2)
 
     res_a_temp = res_a * mask_a
     res_b_temp = res_b * mask_b
@@ -62,11 +64,9 @@ def normalize_masked_descriptor_pair(res_a, res_b, mask_a, mask_b):
     normed_res_a = np.zeros_like(res_a)
     normed_res_b = np.zeros_like(res_b)
 
-    for d in xrange(D):
-        res_a_d = res_a_temp[:,:,d]
-        res_b_d = res_b_temp[:,:,d]
-
-
+    for d in range(D):
+        res_a_d = res_a_temp[:, :, d]
+        res_b_d = res_b_temp[:, :, d]
 
         res_a_min = np.min(res_a_d[np.nonzero(res_a_d)])
         res_b_min = np.min(res_b_d[np.nonzero(res_b_d)])
@@ -77,13 +77,12 @@ def normalize_masked_descriptor_pair(res_a, res_b, mask_a, mask_b):
         both_min = min(res_a_min, res_b_min)
         both_max = max(res_a_max, res_b_max)
         scale_factor = both_max - both_min
-        normed_res_a[:,:,d] = (res_a[:,:,d] - both_min)/scale_factor
-        normed_res_b[:,:,d] = (res_b[:,:,d] - both_min)/scale_factor
-
+        normed_res_a[:, :, d] = (res_a[:, :, d] - both_min) / scale_factor
+        normed_res_b[:, :, d] = (res_b[:, :, d] - both_min) / scale_factor
 
     normed_res_a = normed_res_a * mask_a
     normed_res_b = normed_res_b * mask_b
-        
+
     return normed_res_a, normed_res_b
 
 
@@ -95,7 +94,8 @@ def pil_image_to_cv2(pil_image):
     :return: a numpy array that cv2 likes
     :rtype: numpy array 
     """
-    return np.array(pil_image)[:, :, ::-1].copy() # open and convert between BGR and RGB
+    return np.array(pil_image)[:, :, ::-1].copy()  # open and convert between BGR and RGB
+
 
 def draw_correspondence_points_cv2(img, pixels):
     """
@@ -109,12 +109,14 @@ def draw_correspondence_points_cv2(img, pixels):
     :return: the img with the pixel reticles drawn on it
     :rtype: a cv2 image
     """
-    label_colors = [(255,0,0), (0,255,0), (0,0,255), (255,0,255), (0,125,125), (125,125,0), (200,255,50), (255, 125, 220), (10, 125, 255)]
+    label_colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 0, 255), (0,
+                                                                           125, 125), (125, 125, 0), (200, 255, 50), (255, 125, 220), (10, 125, 255)]
     num_colors = len(label_colors)
     for index, pixel in enumerate(pixels):
         color = label_colors[index % num_colors]
         img = draw_reticle_cv2(img, int(pixel["u"]), int(pixel["v"]), color)
     return img
+
 
 def draw_reticle_cv2(img, u, v, label_color):
     """
@@ -132,13 +134,13 @@ def draw_reticle_cv2(img, u, v, label_color):
     :return: the img with a new pixel reticle drawn on it
     :rtype: a cv2 image
     """
-    white = (255,255,255)
-    black = (0,0,0)
-    cv2.circle(img,(u,v),10,label_color,1)
-    cv2.circle(img,(u,v),11,white,1)
-    cv2.circle(img,(u,v),12,label_color,1)
-    cv2.line(img,(u,v+1),(u,v+3),white,1)
-    cv2.line(img,(u+1,v),(u+3,v),white,1)
-    cv2.line(img,(u,v-1),(u,v-3),white,1)
-    cv2.line(img,(u-1,v),(u-3,v),white,1)
+    white = (255, 255, 255)
+    black = (0, 0, 0)
+    cv2.circle(img, (u, v), 10, label_color, 1)
+    cv2.circle(img, (u, v), 11, white, 1)
+    cv2.circle(img, (u, v), 12, label_color, 1)
+    cv2.line(img, (u, v + 1), (u, v + 3), white, 1)
+    cv2.line(img, (u + 1, v), (u + 3, v), white, 1)
+    cv2.line(img, (u, v - 1), (u, v - 3), white, 1)
+    cv2.line(img, (u - 1, v), (u - 3, v), white, 1)
     return img

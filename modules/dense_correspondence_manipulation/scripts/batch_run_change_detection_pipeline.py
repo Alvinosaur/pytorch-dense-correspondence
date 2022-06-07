@@ -12,6 +12,7 @@ from dense_correspondence_manipulation.utils.constants import *
 Script that runs the change detection pipeline on all subfolders in a directory
 """
 
+
 def main():
     parent_folder = os.getcwd()
     list_of_dirs = sorted(os.listdir(parent_folder))
@@ -30,24 +31,25 @@ def main():
         if os.path.isdir(image_masks_folder):
             shutil.rmtree(image_masks_folder)
 
-        print "Processing scene %d of %d" %(idx, num_dirs)
-        print "Running change detection for %s" %(dir)
+        print("Processing scene %d of %d" % (idx, num_dirs))
+        print("Running change detection for %s" % (dir))
 
         cmd = "run_change_detection.py --data_dir " + data_folder
-        print "cmd: ", cmd
+        print("cmd: ", cmd)
         os.system(cmd)
-        print "finished running change detection"
+        print("finished running change detection")
 
         cmd = "render_depth_images.py --data_dir " + data_folder
-        print "\nrendering depth images"
-        print "cmd"
+        print("\nrendering depth images")
+        print("cmd")
         os.system(cmd)
-        print "finished rendering depth images\n\n"
+        print("finished rendering depth images\n\n")
 
         # this doesn't work, for some reason different directorApp's won't quit.
         # run_change_detection_pipeline.run(data_folder, CHANGE_DETECTION_CONFIG_FILE)
 
         time.sleep(2.0)
 
-if __name__== "__main__":
+
+if __name__ == "__main__":
     main()

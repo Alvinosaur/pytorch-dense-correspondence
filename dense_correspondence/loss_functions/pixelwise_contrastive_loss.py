@@ -196,6 +196,21 @@ class PixelwiseContrastiveLoss(object):
         :rtype:
         """
 
+        if non_matches_a.numel() == 0 or non_matches_b.numel() == 0:
+            return torch.tensor(0.0, device=image_a_pred.device), 0, None, None
+
+        # assert non_matches_a.min() >= 0 and non_matches_a.max(
+        # ) < image_a_pred.size()[1]
+        # try:
+        #     assert non_matches_b.min() >= 0 and non_matches_b.max(
+        #     ) < image_b_pred.size()[1]
+        # except:
+        # NOTE: couldn't figure out why this is hapening....
+        non_matches_a = torch.clamp(
+            non_matches_a, 0, image_a_pred.size()[1] - 1)
+        non_matches_b = torch.clamp(
+            non_matches_b, 0, image_b_pred.size()[1] - 1)
+
         non_matches_a_descriptors = torch.index_select(
             image_a_pred, 1, non_matches_a).squeeze()
         non_matches_b_descriptors = torch.index_select(
@@ -274,7 +289,7 @@ class PixelwiseContrastiveLoss(object):
             self._debug_data['num_hard_negatives'] = num_hard_negatives
             try:
                 self._debug_data['fraction_hard_negatives'] = num_hard_negatives * \
-                    1.0/num_non_matches
+                    1.0 / num_non_matches
             except ZeroDivisionError:
                 self._debug_data['fraction_hard_negatives'] = 0
 
@@ -304,7 +319,7 @@ class PixelwiseContrastiveLoss(object):
         non_match_loss_vec, num_hard_negatives, _, _ = PCL.non_match_descriptor_loss(image_a_pred, image_b_pred, non_matches_a,
                                                                                      non_matches_b, M=M_descriptor, invert=invert)
 
-        num_non_matches = long(non_match_loss_vec.size()[0])
+        num_non_matches = int(non_match_loss_vec.size()[0])
 
         non_match_loss = non_match_loss_vec.sum()
 
@@ -312,7 +327,7 @@ class PixelwiseContrastiveLoss(object):
             self._debug_data['num_hard_negatives'] = num_hard_negatives
             try:
                 self._debug_data['fraction_hard_negatives'] = num_hard_negatives * \
-                    1.0/num_non_matches
+                    1.0 / num_non_matches
             except ZeroDivisionError:
                 self._debug_data['fraction_hard_negatives'] = 0
 
@@ -332,8 +347,13 @@ class PixelwiseContrastiveLoss(object):
         if M_pixel is None:
             M_pixel = self._config['M_pixel']
 
-        num_non_matches_per_match = len(non_matches_b)/len(matches_b)
+        try:
+            num_non_matches_per_match = int(
+                len(non_matches_b) / len(matches_b))
+        except ZeroDivisionError:
+            return torch.tensor(0.0, device=matches_b.device), None, None
 
+        # want the non-matches to be close to matches?
         ground_truth_pixels_for_non_matches_b = torch.t(matches_b.repeat(
             num_non_matches_per_match, 1)).contiguous().view(-1, 1)
 
@@ -345,13 +365,13 @@ class PixelwiseContrastiveLoss(object):
         # each element is always within [0,1], you have 1 if you are at least M_pixel away in
         # L2 norm in pixel space
         norm_degree = 2
-        squared_l2_pixel_loss = 1.0/M_pixel * \
+        squared_l2_pixel_loss = 1.0 / M_pixel * \
             torch.clamp(
                 (ground_truth_u_v_b - sampled_u_v_b).float().norm(norm_degree, 1), max=M_pixel)
 
         return squared_l2_pixel_loss, ground_truth_u_v_b, sampled_u_v_b
 
-    def flattened_pixel_locations_to_u_v(self, flat_pixel_locations, image_width):
+    def flattened_pixel_locations_to_u_v(self, flat_pixel_locations):
         """
         :param flat_pixel_locations: A torch.LongTensor of shape torch.Shape([n,1]) where each element
          is a flattened pixel index, i.e. some integer between 0 and 307,200 for a 640x480 image
@@ -365,7 +385,8 @@ class PixelwiseContrastiveLoss(object):
         u_v_pixel_locations = flat_pixel_locations.repeat(1, 2)
         u_v_pixel_locations[:, 0] = u_v_pixel_locations[:,
                                                         0] % self.image_width
-        u_v_pixel_locations[:, 1] = u_v_pixel_locations[:, 1]/self.image_width
+        u_v_pixel_locations[:, 1] = u_v_pixel_locations[:,
+                                                        1] / self.image_width
         return u_v_pixel_locations
 
     def get_l2_pixel_loss_original(self):
@@ -412,7 +433,7 @@ class PixelwiseContrastiveLoss(object):
         matches_a_descriptors = torch.index_select(image_a_pred, 1, matches_a)
         matches_b_descriptors = torch.index_select(image_b_pred, 1, matches_b)
 
-        match_loss = 1.0/num_matches * \
+        match_loss = 1.0 / num_matches * \
             (matches_a_descriptors - matches_b_descriptors).pow(2).sum()
 
         # add loss via non_matches
@@ -424,7 +445,7 @@ class PixelwiseContrastiveLoss(object):
                            non_matches_b_descriptors).pow(2).sum(dim=2)
         pixel_wise_loss = torch.add(torch.neg(pixel_wise_loss), M_margin)
         zeros_vec = torch.zeros_like(pixel_wise_loss)
-        non_match_loss = non_match_loss_weight * 1.0/num_non_matches * \
+        non_match_loss = non_match_loss_weight * 1.0 / num_non_matches * \
             torch.max(zeros_vec, pixel_wise_loss).sum()
 
         loss = match_loss + non_match_loss

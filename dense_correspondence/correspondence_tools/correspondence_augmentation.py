@@ -16,6 +16,7 @@ import numpy as np
 import random
 import torch
 
+
 def random_image_and_indices_mutation(images, uv_pixel_positions):
     """
     This function takes a list of images and a list of pixel positions in the image, 
@@ -26,32 +27,34 @@ def random_image_and_indices_mutation(images, uv_pixel_positions):
     :type  images: list of PIL.image.image
 
     :param uv_pixel_positions: pixel locations (u, v) in the image. 
-    	See doc/coordinate_conventions.md for definition of (u, v)
+        See doc/coordinate_conventions.md for definition of (u, v)
 
     :type  uv_pixel_positions: a tuple of torch Tensors, each of length n, i.e:
 
-    	(u_pixel_positions, v_pixel_positions)
+        (u_pixel_positions, v_pixel_positions)
 
-    	Where each of the elements of the tuple are torch Tensors of length n
+        Where each of the elements of the tuple are torch Tensors of length n
 
-    	Note: aim is to support both torch.LongTensor and torch.FloatTensor,
-    	      and return the mutated_uv_pixel_positions with same type
+        Note: aim is to support both torch.LongTensor and torch.FloatTensor,
+              and return the mutated_uv_pixel_positions with same type
 
     :return mutated_image_list, mutated_uv_pixel_positions
-    	:rtype: list of PIL.image.image, tuple of torch Tensors
+        :rtype: list of PIL.image.image, tuple of torch Tensors
 
     """
 
     # Current augmentation is:
     # 50% do nothing
-    # 50% rotate the image 180 degrees (by applying flip vertical then flip horizontal) 
+    # 50% rotate the image 180 degrees (by applying flip vertical then flip horizontal)
 
     if random.random() < 0.5:
         return images, uv_pixel_positions
 
     else:
-        mutated_images, mutated_uv_pixel_positions = flip_vertical(images, uv_pixel_positions)
-        mutated_images, mutated_uv_pixel_positions = flip_horizontal(mutated_images, mutated_uv_pixel_positions)
+        mutated_images, mutated_uv_pixel_positions = flip_vertical(
+            images, uv_pixel_positions)
+        mutated_images, mutated_uv_pixel_positions = flip_horizontal(
+            mutated_images, mutated_uv_pixel_positions)
 
         return mutated_images, mutated_uv_pixel_positions
 
@@ -64,10 +67,13 @@ def flip_vertical(images, uv_pixel_positions):
 
     """
     mutated_images = [ImageOps.flip(image) for image in images]
+    image = images[0]
     v_pixel_positions = uv_pixel_positions[1]
-    mutated_v_pixel_positions = (image.height-1) - v_pixel_positions
-    mutated_uv_pixel_positions = (uv_pixel_positions[0], mutated_v_pixel_positions)
+    mutated_v_pixel_positions = (image.height - 1) - v_pixel_positions
+    mutated_uv_pixel_positions = (
+        uv_pixel_positions[0], mutated_v_pixel_positions)
     return mutated_images, mutated_uv_pixel_positions
+
 
 def flip_horizontal(images, uv_pixel_positions):
     """
@@ -78,10 +84,13 @@ def flip_horizontal(images, uv_pixel_positions):
     """
 
     mutated_images = [ImageOps.mirror(image) for image in images]
+    image = images[0]
     u_pixel_positions = uv_pixel_positions[0]
-    mutated_u_pixel_positions = (image.width-1) - u_pixel_positions
-    mutated_uv_pixel_positions = (mutated_u_pixel_positions, uv_pixel_positions[1])
+    mutated_u_pixel_positions = (image.width - 1) - u_pixel_positions
+    mutated_uv_pixel_positions = (
+        mutated_u_pixel_positions, uv_pixel_positions[1])
     return mutated_images, mutated_uv_pixel_positions
+
 
 def random_domain_randomize_background(image_rgb, image_mask):
     """
@@ -111,16 +120,19 @@ def domain_randomize_background(image_rgb, image_mask):
     image_rgb_numpy = np.asarray(image_rgb)
     image_mask_numpy = np.asarray(image_mask)
     three_channel_mask = np.zeros_like(image_rgb_numpy)
-    three_channel_mask[:,:,0] = three_channel_mask[:,:,1] = three_channel_mask[:,:,2] = image_mask
+    three_channel_mask[:, :, 0] = three_channel_mask[:,
+                                                     :, 1] = three_channel_mask[:, :, 2] = image_mask
     image_rgb_numpy = image_rgb_numpy * three_channel_mask
 
     # Next, domain randomize all non-masked parts of image
-    three_channel_mask_complement = np.ones_like(three_channel_mask) - three_channel_mask
+    three_channel_mask_complement = np.ones_like(
+        three_channel_mask) - three_channel_mask
     random_rgb_image = get_random_image(image_rgb_numpy.shape)
     random_rgb_background = three_channel_mask_complement * random_rgb_image
 
     domain_randomized_image_rgb = image_rgb_numpy + random_rgb_background
     return Image.fromarray(domain_randomized_image_rgb)
+
 
 def get_random_image(shape):
     """
@@ -145,12 +157,14 @@ def get_random_image(shape):
     else:
         return add_noise(rand_image)
 
+
 def get_random_rgb():
     """
     :return random rgb colors, each in range 0 to 255, for example [13, 25, 255]
     :rtype: numpy array with dtype=np.uint8
     """
     return np.array(np.random.uniform(size=3) * 255, dtype=np.uint8)
+
 
 def get_random_solid_color_image(shape):
     """
@@ -159,7 +173,8 @@ def get_random_solid_color_image(shape):
     :return random solid color image:
     :rtype: numpy array of specificed shape, with dtype=np.uint8
     """
-    return np.ones(shape,dtype=np.uint8)*get_random_rgb()
+    return np.ones(shape, dtype=np.uint8) * get_random_rgb()
+
 
 def get_random_entire_image(shape, max_pixel_uint8):
     """
@@ -175,8 +190,10 @@ def get_random_entire_image(shape, max_pixel_uint8):
     """
     return np.array(np.random.uniform(size=shape) * max_pixel_uint8, dtype=np.uint8)
 
-# this gradient code roughly taken from: 
+# this gradient code roughly taken from:
 # https://github.com/openai/mujoco-py/blob/master/mujoco_py/modder.py
+
+
 def get_gradient_image(rgb1, rgb2, vertical):
     """
     Interpolates between two images rgb1 and rgb2
@@ -198,6 +215,7 @@ def get_gradient_image(rgb1, rgb2, vertical):
 
     return bitmap
 
+
 def add_noise(rgb_image):
     """
     Adds noise, and subtracts noise to the rgb_image
@@ -211,7 +229,7 @@ def add_noise(rgb_image):
     ## Note: do not need to clamp, since uint8 will just overflow -- not bad
     """
     max_noise_to_add_or_subtract = 50
-    return rgb_image + get_random_entire_image(rgb_image.shape, max_noise_to_add_or_subtract) - get_random_entire_image(rgb_image.shape, max_noise_to_add_or_subtract) 
+    return rgb_image + get_random_entire_image(rgb_image.shape, max_noise_to_add_or_subtract) - get_random_entire_image(rgb_image.shape, max_noise_to_add_or_subtract)
 
 
 def merge_images_with_occlusions(image_a, image_b, mask_a, mask_b, matches_pair_a, matches_pair_b):
@@ -254,37 +272,41 @@ def merge_images_with_occlusions(image_a, image_b, mask_a, mask_b, matches_pair_
 
     # First, mask the foreground rgb image
     foreground_image_numpy = np.asarray(foreground_image)
-    foreground_mask_numpy  = np.asarray(foreground_mask)
+    foreground_mask_numpy = np.asarray(foreground_mask)
     three_channel_mask = np.zeros_like(foreground_image_numpy)
-    three_channel_mask[:,:,0] = three_channel_mask[:,:,1] = three_channel_mask[:,:,2] = foreground_mask
+    three_channel_mask[:, :, 0] = three_channel_mask[:, :,
+                                                     1] = three_channel_mask[:, :, 2] = foreground_mask
     foreground_image_numpy = foreground_image_numpy * three_channel_mask
 
     # Next, zero out this portion in the background image
     background_image_numpy = np.asarray(background_image)
-    three_channel_mask_complement = np.ones_like(three_channel_mask) - three_channel_mask
+    three_channel_mask_complement = np.ones_like(
+        three_channel_mask) - three_channel_mask
     background_image_numpy = three_channel_mask_complement * background_image_numpy
 
     # Finally, merge these two images
     merged_image_numpy = foreground_image_numpy + background_image_numpy
 
     # Prune occluded matches
-    background_matches_pair = prune_matches_if_occluded(foreground_mask_numpy, background_matches_pair)
- 
+    background_matches_pair = prune_matches_if_occluded(
+        foreground_mask_numpy, background_matches_pair)
+
     if foreground == "A":
-        matches_a            = foreground_matches_pair[0]
+        matches_a = foreground_matches_pair[0]
         associated_matches_a = foreground_matches_pair[1]
-        matches_b            = background_matches_pair[0]
+        matches_b = background_matches_pair[0]
         associated_matches_b = background_matches_pair[1]
     elif foreground == "B":
-        matches_a            = background_matches_pair[0]
+        matches_a = background_matches_pair[0]
         associated_matches_a = background_matches_pair[1]
-        matches_b            = foreground_matches_pair[0]
+        matches_b = foreground_matches_pair[0]
         associated_matches_b = foreground_matches_pair[1]
     else:
         raise ValueError("Should not be here?")
 
     merged_masked_numpy = foreground_mask_numpy + np.asarray(background_mask)
-    merged_masked_numpy = merged_masked_numpy.clip(0,1) # in future, could preserve identities of masks
+    # in future, could preserve identities of masks
+    merged_masked_numpy = merged_masked_numpy.clip(0, 1)
     return Image.fromarray(merged_image_numpy), merged_masked_numpy, matches_a, associated_matches_a, matches_b, associated_matches_b
 
 
@@ -310,27 +332,30 @@ def prune_matches_if_occluded(foreground_mask_numpy, background_matches_pair):
         Note: only support torch.LongTensors
     """
 
-    background_matches_a = background_matches_pair[0] 
+    background_matches_a = background_matches_pair[0]
     background_matches_b = background_matches_pair[1]
 
-    idxs_to_keep  = []
-    
+    idxs_to_keep = []
+
     # this is slow but works
     for i in range(len(background_matches_a[0])):
         u = background_matches_a[0][i]
         v = background_matches_a[1][i]
 
-        if foreground_mask_numpy[v,u] == 0:
+        if foreground_mask_numpy[v, u] == 0:
             idxs_to_keep.append(i)
 
     if len(idxs_to_keep) == 0:
         return (None, None)
 
     idxs_to_keep = torch.LongTensor(idxs_to_keep)
-    background_matches_a = (torch.index_select(background_matches_a[0], 0, idxs_to_keep), torch.index_select(background_matches_a[1], 0, idxs_to_keep))
-    background_matches_b = (torch.index_select(background_matches_b[0], 0, idxs_to_keep), torch.index_select(background_matches_b[1], 0, idxs_to_keep))
+    background_matches_a = (torch.index_select(background_matches_a[0], 0, idxs_to_keep), torch.index_select(
+        background_matches_a[1], 0, idxs_to_keep))
+    background_matches_b = (torch.index_select(background_matches_b[0], 0, idxs_to_keep), torch.index_select(
+        background_matches_b[1], 0, idxs_to_keep))
 
     return (background_matches_a, background_matches_b)
+
 
 def merge_matches(matches_one, matches_two):
     """
@@ -345,11 +370,3 @@ def merge_matches(matches_one, matches_two):
     concatenated_u = torch.cat((matches_one[0], matches_two[0]))
     concatenated_v = torch.cat((matches_one[1], matches_two[1]))
     return (concatenated_u, concatenated_v)
-
-
-
-
-
-
-    
-

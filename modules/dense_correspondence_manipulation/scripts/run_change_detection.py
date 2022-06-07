@@ -15,6 +15,7 @@ Runs change detection to compute masks for each image
 CONFIG_FILE = CHANGE_DETECTION_CONFIG_FILE
 # CONFIG_FILE = CHANGE_DETECTION_BACKGROUND_SUBTRACTION_CONFIG_FILE
 
+
 def run(data_folder, config_file=CONFIG_FILE, debug=False, globalsDict=None,
         background_scene_data_folder=None):
     """
@@ -30,12 +31,8 @@ def run(data_folder, config_file=CONFIG_FILE, debug=False, globalsDict=None,
     if background_scene_data_folder is None:
         background_scene_data_folder = data_folder
 
-
-
-
     config_file = CONFIG_FILE
     config = utils.getDictFromYamlFilename(config_file)
-
 
     changeDetection, obj_dict = change_detection.ChangeDetection.from_data_folder(data_folder, config=config, globalsDict=globalsDict,
                                                                                   background_data_folder=background_scene_data_folder)
@@ -59,16 +56,18 @@ def run(data_folder, config_file=CONFIG_FILE, debug=False, globalsDict=None,
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data_dir", type=str, required=False, help="full path to the processed/ folder of a top level log folder")
+    parser.add_argument("--data_dir", type=str, required=False,
+                        help="full path to the processed/ folder of a top level log folder")
 
-    default_config_file = os.path.join(utils.getDenseCorrespondenceSourceDir(), 'config', 'stations', 'RLG_iiwa_1', 'change_detection.yaml')
+    default_config_file = os.path.join(utils.getDenseCorrespondenceSourceDir(
+    ), 'config', 'stations', 'RLG_iiwa_1', 'change_detection.yaml')
     parser.add_argument("--config_file", type=str, default=default_config_file)
 
-    parser.add_argument('--current_dir', action='store_true', default=False, help="run the script with --data_dir set to the current directory. You should be in the processed/ subfolder")
+    parser.add_argument('--current_dir', action='store_true', default=False,
+                        help="run the script with --data_dir set to the current directory. You should be in the processed/ subfolder")
 
     parser.add_argument('--debug', action='store_true', default=False,
                         help="launch the app in debug mode")
-
 
     globalsDict = globals()
     args = parser.parse_args()
@@ -78,9 +77,10 @@ if __name__ == "__main__":
     data_folder = args.data_dir
 
     if args.current_dir:
-        print "running with data_dir set to current working directory . . . "
+        print("running with data_dir set to current working directory . . . ")
         data_folder = os.getcwd()
     elif args.data_dir:
         data_folder = args.data_dir
 
-    run(data_folder, config_file=args.config_file, debug=args.debug, globalsDict=globalsDict)
+    run(data_folder, config_file=args.config_file,
+        debug=args.debug, globalsDict=globalsDict)

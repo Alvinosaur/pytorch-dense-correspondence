@@ -1,7 +1,12 @@
+import dense_correspondence_manipulation.utils.utils as utils
+utils.add_dense_correspondence_to_python_path()
+
 from dense_correspondence.dataset.scene_structure import SceneStructure
 import dense_correspondence.correspondence_tools.correspondence_augmentation as correspondence_augmentation
 import dense_correspondence.correspondence_tools.correspondence_finder as correspondence_finder
-from dense_correspondence_dataset_masked import DenseCorrespondenceDataset, ImageType
+from dense_correspondence.dataset.dense_correspondence_dataset_masked import DenseCorrespondenceDataset, ImageType
+from dense_correspondence_manipulation.utils.utils import CameraIntrinsics
+import dense_correspondence_manipulation.utils.constants as constants
 
 import os
 import numpy as np
@@ -15,15 +20,6 @@ import torch
 # note that this is the torchvision provided by the warmspringwinds
 # pytorch-segmentation-detection repo. It is a fork of pytorch/vision
 from torchvision import transforms
-
-import dense_correspondence_manipulation.utils.utils as utils
-from dense_correspondence_manipulation.utils.utils import CameraIntrinsics
-
-
-import dense_correspondence_manipulation.utils.constants as constants
-
-
-utils.add_dense_correspondence_to_python_path()
 
 
 class SpartanDatasetDataType:
@@ -101,17 +97,19 @@ class SpartanDataset(DenseCorrespondenceDataset):
             raise ValueError("mode should be one of [test, train]")
 
         self.init_length()
-        print "Using SpartanDataset:"
-        print "   - in", self.mode, "mode"
-        print "   - number of scenes", self._num_scenes
-        print "   - total images:    ", self.num_images_total
+        print("Using SpartanDataset:")
+        print("   - in", self.mode, "mode")
+        print("   - number of scenes", self._num_scenes)
+        print("   - total images:    ", self.num_images_total)
 
         # Also store sorted object names and scene_name -> object id mapping
         print("DATASET MODE: %s" % self.mode)
         self._object_ids = sorted(self._single_object_scene_dict.keys())
         self._scene_name_to_object_id = dict()
+        self._scene_list = []
         for object_id in self._object_ids:
             scene_list = self._single_object_scene_dict[object_id][self.mode]
+            self._scene_list += scene_list
             for scene_name in scene_list:
                 self._scene_name_to_object_id[scene_name] = object_id
 
@@ -129,31 +127,31 @@ class SpartanDataset(DenseCorrespondenceDataset):
         # Case 0: Same scene, same object
         if data_load_type == SpartanDatasetDataType.SINGLE_OBJECT_WITHIN_SCENE:
             if self._verbose:
-                print "Same scene, same object"
+                print("Same scene, same object")
             return self.get_single_object_within_scene_data()
 
         # Case 1: Same object, different scene
         if data_load_type == SpartanDatasetDataType.SINGLE_OBJECT_ACROSS_SCENE:
             if self._verbose:
-                print "Same object, different scene"
+                print("Same object, different scene")
             return self.get_single_object_across_scene_data()
 
         # Case 2: Different object
         if data_load_type == SpartanDatasetDataType.DIFFERENT_OBJECT:
             if self._verbose:
-                print "Different object"
+                print("Different object")
             return self.get_different_object_data()
 
         # Case 3: Multi object
         if data_load_type == SpartanDatasetDataType.MULTI_OBJECT:
             if self._verbose:
-                print "Multi object"
+                print("Multi object")
             return self.get_multi_object_within_scene_data()
 
         # Case 4: Synthetic multi object
         if data_load_type == SpartanDatasetDataType.SYNTHETIC_MULTI_OBJECT:
             if self._verbose:
-                print "Synthetic multi object"
+                print("Synthetic multi object")
             return self.get_synthetic_multi_object_within_scene_data()
 
     def _setup_scene_data(self, config):
@@ -207,7 +205,7 @@ class SpartanDataset(DenseCorrespondenceDataset):
             multi_object_scene_config = utils.getDictFromYamlFilename(
                 config_file)
 
-            for key, val in self._multi_object_scene_dict.iteritems():
+            for key, val in self._multi_object_scene_dict.items():
                 for item in multi_object_scene_config[key]:
                     val.append(item)
 
@@ -261,7 +259,7 @@ class SpartanDataset(DenseCorrespondenceDataset):
         if mode is None:
             mode = self.mode
 
-        for object_id, single_object_scene_dict in self._single_object_scene_dict.iteritems():
+        for object_id, single_object_scene_dict in self._single_object_scene_dict.items():
             for scene_name in single_object_scene_dict[mode]:
                 yield scene_name
 
@@ -442,7 +440,7 @@ class SpartanDataset(DenseCorrespondenceDataset):
         :rtype:
         """
         pose_data = self.get_pose_data(scene_name)
-        image_idxs = pose_data.keys()  # list of integers
+        image_idxs = list(pose_data.keys())  # list of integers
         random.choice(image_idxs)
         random_idx = random.choice(image_idxs)
         return random_idx
@@ -696,10 +694,8 @@ class SpartanDataset(DenseCorrespondenceDataset):
             correspondence_mask = None
 
         # find correspondences
-        uv_a, uv_b = correspondence_finder.batch_find_pixel_correspondences(image_a_depth_numpy, image_a_pose,
-                                                                            image_b_depth_numpy, image_b_pose,
-                                                                            img_a_mask=correspondence_mask,
-                                                                            num_attempts=self.num_matching_attempts)
+        uv_a, uv_b = correspondence_finder.batch_find_pixel_correspondences(
+            image_a_depth_numpy, image_a_pose, image_b_depth_numpy, image_b_pose, img_a_mask=correspondence_mask, num_attempts=self.num_matching_attempts)
 
         if for_synthetic_multi_object:
             return image_a_rgb, image_b_rgb, image_a_depth, image_b_depth, image_a_mask, image_b_mask, uv_a, uv_b
@@ -824,15 +820,15 @@ class SpartanDataset(DenseCorrespondenceDataset):
                 uv_a, uv_b, num_samples=num_matches_to_plot)
 
             plot_uv_a_masked_long, plot_uv_b_masked_non_matches_long = SD.subsample_tuple_pair(
-                uv_a_masked_long, uv_b_masked_non_matches_long, num_samples=num_matches_to_plot*3)
+                uv_a_masked_long, uv_b_masked_non_matches_long, num_samples=num_matches_to_plot * 3)
 
             plot_uv_a_background_long, plot_uv_b_background_non_matches_long = SD.subsample_tuple_pair(
-                uv_a_background_long, uv_b_background_non_matches_long, num_samples=num_matches_to_plot*3)
+                uv_a_background_long, uv_b_background_non_matches_long, num_samples=num_matches_to_plot * 3)
 
             blind_uv_a = utils.flattened_pixel_locations_to_u_v(
                 blind_non_matches_a, image_width)
             plot_blind_uv_a, plot_blind_uv_b = SD.subsample_tuple_pair(
-                blind_uv_a, blind_uv_b, num_samples=num_matches_to_plot*10)
+                blind_uv_a, blind_uv_b, num_samples=num_matches_to_plot * 10)
 
         if self.debug:
             # only want to bring in plotting code if in debug mode
@@ -888,6 +884,18 @@ class SpartanDataset(DenseCorrespondenceDataset):
                 plt.title(
                     "Mask of img a object pixels for which there was NO match")
                 plt.show()
+
+        # Clamp to ensure within bounds
+        matches_a = torch.clamp(matches_a, 0, image_width * image_height - 1)
+        matches_b = torch.clamp(matches_b, 0, image_width * image_height - 1)
+        masked_non_matches_a = torch.clamp(
+            masked_non_matches_a, 0, image_width * image_height - 1)
+        masked_non_matches_b = torch.clamp(
+            masked_non_matches_b, 0, image_width * image_height - 1)
+        background_non_matches_a = torch.clamp(
+            background_non_matches_a, 0, image_width * image_height - 1)
+        background_non_matches_b = torch.clamp(
+            background_non_matches_b, 0, image_width * image_height - 1)
 
         return metadata["type"], image_a_rgb, image_b_rgb, matches_a, matches_b, masked_non_matches_a, masked_non_matches_b, background_non_matches_a, background_non_matches_b, blind_non_matches_a, blind_non_matches_b, metadata
 
@@ -1065,7 +1073,7 @@ class SpartanDataset(DenseCorrespondenceDataset):
             import dense_correspondence.correspondence_tools.correspondence_plotter as correspondence_plotter
             num_matches_to_plot = 10
 
-            print "PRE-MERGING"
+            print("PRE-MERGING")
             plot_uv_a1, plot_uv_a2 = SpartanDataset.subsample_tuple_pair(
                 uv_a1, uv_a2, num_samples=num_matches_to_plot)
 
@@ -1082,7 +1090,7 @@ class SpartanDataset(DenseCorrespondenceDataset):
             #                                                        plot_uv_b1, plot_uv_b2,
             #                                                        circ_color='g', show=True)
 
-            print "MERGED"
+            print("MERGED")
             plot_uv_1, plot_uv_2 = SpartanDataset.subsample_tuple_pair(
                 matches_1, matches_2, num_samples=num_matches_to_plot)
             plot_uv_a_masked_long, plot_uv_b_masked_non_matches_long =\
@@ -1120,6 +1128,18 @@ class SpartanDataset(DenseCorrespondenceDataset):
                                                                use_previous_plot=(
                                                                    fig, axes),
                                                                circ_color='b')
+
+        # Clamp to ensure within bounds
+        matches_a = torch.clamp(matches_a, 0, image_width * image_height - 1)
+        matches_b = torch.clamp(matches_b, 0, image_width * image_height - 1)
+        masked_non_matches_a = torch.clamp(
+            masked_non_matches_a, 0, image_width * image_height - 1)
+        masked_non_matches_b = torch.clamp(
+            masked_non_matches_b, 0, image_width * image_height - 1)
+        background_non_matches_a = torch.clamp(
+            background_non_matches_a, 0, image_width * image_height - 1)
+        background_non_matches_b = torch.clamp(
+            background_non_matches_b, 0, image_width * image_height - 1)
 
         return metadata["type"], merged_rgb_1, merged_rgb_2, matches_a, matches_b, masked_non_matches_a, masked_non_matches_b, background_non_matches_a, background_non_matches_b, SD.empty_tensor(), SD.empty_tensor(), metadata
 
@@ -1210,7 +1230,7 @@ class SpartanDataset(DenseCorrespondenceDataset):
             num_matches_to_plot = 10
 
             plot_blind_uv_a, plot_blind_uv_b = SD.subsample_tuple_pair(
-                blind_uv_a, blind_uv_b, num_samples=num_matches_to_plot*10)
+                blind_uv_a, blind_uv_b, num_samples=num_matches_to_plot * 10)
 
             correspondence_plotter.plot_correspondences_direct(image_a_rgb_PIL, image_a_depth_numpy,
                                                                image_b_rgb_PIL, image_b_depth_numpy,
@@ -1351,7 +1371,7 @@ class SpartanDataset(DenseCorrespondenceDataset):
         :return:
         :rtype:
         """
-        image_flat = torch.zeros(image_width*image_height).long()
+        image_flat = torch.zeros(image_width * image_height).long()
         image_flat[uv_flat_tensor] = 1
         return image_flat
 
@@ -1425,37 +1445,27 @@ class OPDataSelector(SpartanDataset):
         # We should treat all the scenes as one "object" class because
         # we will simliarly have multiple object poses and camera views
         # when human manipulates object.
-
-        # # Store all different scene names (Approach 1)
-        # self.scene_list = sum([self._single_object_scene_dict[object_id][mode] for object_id in self.object_id_list], [])
-
         # # Shuffle
-        # self.scene_list = self._shuffle(self.scene_list, shuffle_seed)
-
-        # self.scene_name_to_object_id = dict()
-        # for object_id in self.object_id_list:
-        #     for scene_name in self._single_object_scene_dict[object_id][mode]:
-        #         self.scene_name_to_object_id[scene_name] = object_id
-
+        self._object_ids = self._shuffle(self._object_ids, shuffle_seed)
         self.counter = 0
 
-    def _shuffle(self, object_list, shuffle_seed=None):
+    def _shuffle(self, x, shuffle_seed=None):
         if shuffle_seed is not None and self.strat == "sequence":
             r = random.random
             random.seed(shuffle_seed)
-            random.shuffle(object_list, random=r)
+            random.shuffle(x, random=r)
         elif self.strat == "random":
-            random.shuffle(object_list)
-        return object_list
+            random.shuffle(x)
+        return x
 
-    def _get_dataset(self, scene_name, type=None, num_samples=32):
+    def get_dataset(self, object_id, type=SpartanDatasetDataType.SINGLE_OBJECT_WITHIN_SCENE, num_samples=32):
         """
         Given a scene, generate num_samples of different matches/non-matches
         from different views.
 
         """
-        object_id = self.scene_name_to_object_id[scene_name]
-        metadata = dict(object_id=object_id, type=type, scene_name=scene_name)
+        metadata = dict(object_id=object_id, type=type)
+        valid_scenes = self._single_object_scene_dict[object_id][self.mode]
 
         max_attempts = 2 * num_samples
         num_attempts = 0
@@ -1474,6 +1484,10 @@ class OPDataSelector(SpartanDataset):
         elif type == SpartanDatasetDataType.SINGLE_OBJECT_WITHIN_SCENE:
             # image_a_idxs = np.random.choice(self.get_all_image_index(scene_name), num_samples)
             while len(data_samples) < num_samples and num_attempts < max_attempts:
+                # randomly pick a scene with this object
+                scene_name = random.choice(valid_scenes)
+                metadata['scene_name'] = scene_name
+
                 num_attempts += 1
                 image_a_idx = np.random.choice(
                     self.get_all_image_index(scene_name))
@@ -1485,24 +1499,26 @@ class OPDataSelector(SpartanDataset):
 
                 if image_b_idx is not None:
                     sample = self.get_within_scene_data(
-                        self, scene_name, metadata, image_a_idx=None, image_b_idx=None)
+                        scene_name, metadata, image_a_idx=None, image_b_idx=None)
                     assert sample[0] == type  # shouldn't be -1
 
                     # NOTE: if running out of memory, can choose only relevant
                     # entries to store, not the full sample
                     data_samples.append(sample)
+        else:
+            raise NotImplementedError("Not implemented")
 
         return data_samples
 
-    def next(self):
-        d, self.counter = self._sequence_next(self.counter)
-        if d is None:
+    def next(self, num_samples=32):
+        object_id, self.counter = self._sequence_next(self.counter)
+        if object_id is None:
             return None, None
-        ds = self._get_dataset(d)
-        return ds, d if ds is not None else self.next()
+        ds = self.get_dataset(object_id, num_samples=num_samples)
+        return ds, object_id if ds is not None else self.next()
 
     def _sequence_next(self, counter):
-        if self.counter < len(self.scene_list):
-            return self.scene_list[self.counter], counter+1
+        if self.counter < len(self._object_ids):
+            return self._object_ids[self.counter], counter + 1
         else:
             return None, counter

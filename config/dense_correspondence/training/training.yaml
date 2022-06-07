@@ -48,22 +48,14 @@ dense_correspondence_network:
     # If Unet
     # currently no options supported
 
-  # Object Pursuit specific params
-  OP:
-    model_type: "Multinet"
-    class_num: 5 # see "op_pretraining.yaml", number of object classes
-    z_dim: 100 # default value
-    use_backbone: True # don't change this... always use backbone
-    freeze_backbone: False
-
 loss_function:
   M_masked: 0.5 # margin for masked non-match descriptor distance
   M_background: 0.5 # margin for background
   M_pixel: 50 # Clamp for pixel distance
   match_loss_weight: 1.0
   non_match_loss_weight: 1.0
-  use_l2_pixel_loss_on_masked_non_matches: False
-  use_l2_pixel_loss_on_background_non_matches: False
+  use_l2_pixel_loss_on_masked_non_matches: True
+  use_l2_pixel_loss_on_background_non_matches: True
   scale_by_hard_negatives: True
   scale_by_hard_negatives_DIFFERENT_OBJECT: True
   alpha_triplet: 0.1

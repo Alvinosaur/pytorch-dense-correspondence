@@ -24,15 +24,15 @@ Usage: Modify the global variables in CAPS as needed
 DC_SOURCE_DIR = utils.getDenseCorrespondenceSourceDir()
 NETWORK_NAME = "caterpillar_M_background_0.500_3"
 EVALUATION_CONFIG_FILENAME = os.path.join(DC_SOURCE_DIR, 'config', 'dense_correspondence',
-                                   'evaluation', 'lucas_evaluation.yaml')
+                                          'evaluation', 'lucas_evaluation.yaml')
 DATASET_CONFIG_FILE = os.path.join(DC_SOURCE_DIR, 'config', 'dense_correspondence', 'dataset', 'composite',
-                                       'caterpillar_only_9.yaml')
+                                   'caterpillar_only_9.yaml')
 
 SCENE_NAME = "2018-04-16-14-25-19"
 
 SAVE_DIR = os.path.join("/home/manuelli/code/data_volume/pdc/logs_test",
-                            SCENE_NAME, "processed",
-                            "descriptor_images", NETWORK_NAME)
+                        SCENE_NAME, "processed",
+                        "descriptor_images", NETWORK_NAME)
 
 
 def compute_descriptor_images_for_single_scene(dataset, scene_name, dcn, save_dir):
@@ -55,8 +55,9 @@ def compute_descriptor_images_for_single_scene(dataset, scene_name, dcn, save_di
 
     counter = 1
     num_images = len(pose_data)
-    for img_idx, data in pose_data.iteritems():
-        rgb, depth, mask, pose = dataset.get_rgbd_mask_pose(scene_name, img_idx)
+    for img_idx, data in pose_data.items():
+        rgb, depth, mask, pose = dataset.get_rgbd_mask_pose(
+            scene_name, img_idx)
 
         # rgb is a PIL image
         rgb_tensor = dataset.rgb_image_to_tensor(rgb)
@@ -64,13 +65,13 @@ def compute_descriptor_images_for_single_scene(dataset, scene_name, dcn, save_di
 
         # save the file
 
-        descriptor_filename = os.path.join(save_dir, SceneStructure.descriptor_image_filename(img_idx))
+        descriptor_filename = os.path.join(
+            save_dir, SceneStructure.descriptor_image_filename(img_idx))
         np.save(descriptor_filename, res)
 
-        print "descriptor_filename", descriptor_filename
-        print "processing image %d of %d" %(counter, num_images)
+        print("descriptor_filename", descriptor_filename)
+        print("processing image %d of %d" % (counter, num_images))
         counter += 1
-
 
 
 if __name__ == "__main__":
@@ -90,11 +91,9 @@ if __name__ == "__main__":
     dataset_config = utils.getDictFromYamlFilename(dataset_config_file)
     dataset = SpartanDataset(config=dataset_config)
 
-
     scene_name = SCENE_NAME
     save_dir = SAVE_DIR
-    compute_descriptor_images_for_single_scene(dataset, scene_name, dcn, save_dir)
+    compute_descriptor_images_for_single_scene(
+        dataset, scene_name, dcn, save_dir)
 
-
-    print "finished cleanly"
-
+    print("finished cleanly")

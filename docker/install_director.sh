@@ -20,12 +20,7 @@ apt install --no-install-recommends \
   libxext-dev \
   libxt-dev \
   mesa-utils \
-  libglu1-mesa-dev \
-  python-dev \
-  python-lxml \
-  python-numpy \
-  python-scipy \
-  python-yaml
+  libglu1-mesa-dev
 
 build_director()
 {

@@ -22,11 +22,11 @@ ENV USER_HOME_DIR=/home/$USER_NAME
 COPY ./install_dependencies.sh /tmp/install_dependencies.sh
 RUN yes "Y" | /tmp/install_dependencies.sh
 
-COPY ./install_pytorch.sh /tmp/install_pytorch.sh
-RUN yes "Y" | /tmp/install_pytorch.sh
+# COPY ./install_pytorch.sh /tmp/install_pytorch.sh
+# RUN yes "Y" | /tmp/install_pytorch.sh
 
-COPY ./install_more.sh /tmp/install_more.sh
-RUN yes "Y" | /tmp/install_more.sh
+# COPY ./install_more.sh /tmp/install_more.sh
+# RUN yes "Y" | /tmp/install_more.sh
 
 # install director
 COPY ./install_director.sh /tmp/install_director.sh
